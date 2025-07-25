@@ -1,4 +1,6 @@
 const QRCode = require('qrcode');
+const { checkBarbeiroBarbeariaAccess } = require('../middlewares/barbeariaAccess');
+const { checkBarbeiroRole, checkGerenteBarbeariaAccess, checkGerenteRole } = require('../middlewares/rolePermissions');
 
 async function filaRoutes(fastify, options) {
   // Adicionar cliente à fila (PÚBLICO)
@@ -135,10 +137,10 @@ async function filaRoutes(fastify, options) {
 
 
 
-  // Obter fila da barbearia (PRIVADO - para funcionários)
+  // Obter fila da barbearia (APENAS BARBEIROS)
   fastify.get('/fila/:barbearia_id', {
     schema: {
-      description: 'Obter fila da barbearia (PRIVADO - para funcionários)',
+      description: 'Obter fila da barbearia (APENAS BARBEIROS)',
       tags: ['fila'],
       params: {
         type: 'object',
@@ -162,7 +164,7 @@ async function filaRoutes(fastify, options) {
         }
       }
     },
-    preHandler: fastify.authenticate
+    preHandler: [fastify.authenticate, checkBarbeiroBarbeariaAccess]
   }, async (request, reply) => {
     try {
       const { barbearia_id } = request.params;
@@ -223,6 +225,101 @@ async function filaRoutes(fastify, options) {
         success: true,
         data: {
           clientes: clientesAtivos,
+          estatisticas: {
+            total_clientes: totalClientes,
+            aguardando,
+            proximo,
+            atendendo,
+            finalizados,
+            removidos,
+            tempo_estimado: tempoEstimado,
+            barbeiros_ativos: barbeirosAtivosCount
+          }
+        }
+      });
+    } catch (error) {
+      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Obter fila da barbearia (APENAS GERENTES)
+  fastify.get('/fila-gerente/:barbearia_id', {
+    schema: {
+      description: 'Obter fila da barbearia (APENAS GERENTES)',
+      tags: ['fila'],
+      params: {
+        type: 'object',
+        required: ['barbearia_id'],
+        properties: { barbearia_id: { type: 'integer' } }
+      },
+      response: {
+        200: {
+          description: 'Fila da barbearia (dados limitados para gerente)',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                estatisticas: { type: 'object' }
+              }
+            }
+          }
+        }
+      }
+    },
+    preHandler: [fastify.authenticate, checkGerenteRole, checkGerenteBarbeariaAccess]
+  }, async (request, reply) => {
+    try {
+      const { barbearia_id } = request.params;
+      
+      // Verificar se a barbearia existe
+      const { data: barbearia, error: barbeariaError } = await fastify.supabase
+        .from('barbearias')
+        .select('id, nome, ativo')
+        .eq('id', barbearia_id)
+        .single();
+      if (barbeariaError || !barbearia) {
+        return reply.status(404).send({ success: false, error: 'Barbearia não encontrada' });
+      }
+      
+      // Obter apenas estatísticas da fila (sem dados pessoais dos clientes)
+      const { data: clientes, error: clientesError } = await fastify.supabase
+        .from('clientes')
+        .select('status')
+        .eq('barbearia_id', barbearia_id)
+        .in('status', ['aguardando', 'proximo', 'atendendo', 'finalizado', 'removido']);
+        
+      if (clientesError) {
+        return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+      }
+      
+      // Calcular estatísticas
+      const totalClientes = clientes.length;
+      const aguardando = clientes.filter(c => c.status === 'aguardando').length;
+      const proximo = clientes.filter(c => c.status === 'proximo').length;
+      const atendendo = clientes.filter(c => c.status === 'atendendo').length;
+      const finalizados = clientes.filter(c => c.status === 'finalizado').length;
+      const removidos = clientes.filter(c => c.status === 'removido').length;
+      
+      // Obter número de barbeiros ativos
+      const { data: barbeirosAtivos } = await fastify.supabase
+        .from('barbeiros_barbearias')
+        .select('id')
+        .eq('barbearia_id', barbearia_id)
+        .eq('ativo', true);
+      const barbeirosAtivosCount = barbeirosAtivos ? barbeirosAtivos.length : 0;
+      
+      // Calcular tempo estimado (15 minutos por cliente)
+      const tempoEstimado = aguardando * 15;
+      
+      return reply.status(200).send({
+        success: true,
+        data: {
+          barbearia: {
+            id: barbearia.id,
+            nome: barbearia.nome
+          },
           estatisticas: {
             total_clientes: totalClientes,
             aguardando,
@@ -337,10 +434,10 @@ async function filaRoutes(fastify, options) {
     }
   });
 
-  // Chamar próximo cliente
+  // Chamar próximo cliente (APENAS BARBEIROS)
   fastify.post('/fila/proximo/:barbearia_id', {
     schema: {
-      description: 'Chamar próximo cliente da fila',
+      description: 'Chamar próximo cliente da fila (APENAS BARBEIROS)',
       tags: ['fila'],
       params: {
         type: 'object',
@@ -359,7 +456,7 @@ async function filaRoutes(fastify, options) {
         }
       }
     },
-    preHandler: fastify.authenticate
+    preHandler: [fastify.authenticate, checkBarbeiroRole, checkBarbeiroBarbeariaAccess]
   }, async (request, reply) => {
     try {
       const { barbearia_id } = request.params;
@@ -419,10 +516,10 @@ async function filaRoutes(fastify, options) {
     }
   });
 
-  // Iniciar atendimento (cliente apareceu no balcão)
+  // Iniciar atendimento (APENAS BARBEIROS)
   fastify.post('/fila/iniciar-atendimento/:cliente_id', {
     schema: {
-      description: 'Iniciar atendimento de um cliente',
+      description: 'Iniciar atendimento de um cliente (APENAS BARBEIROS)',
       tags: ['fila'],
       params: {
         type: 'object',
@@ -485,10 +582,10 @@ async function filaRoutes(fastify, options) {
     }
   });
 
-  // Remover cliente da fila (não apareceu no balcão)
+  // Remover cliente da fila (APENAS BARBEIROS)
   fastify.post('/fila/remover/:cliente_id', {
     schema: {
-      description: 'Remover cliente da fila (não apareceu no balcão)',
+      description: 'Remover cliente da fila (APENAS BARBEIROS)',
       tags: ['fila'],
       params: {
         type: 'object',
@@ -551,10 +648,10 @@ async function filaRoutes(fastify, options) {
     }
   });
 
-  // Finalizar atendimento
+  // Finalizar atendimento (APENAS BARBEIROS)
   fastify.post('/fila/finalizar', {
     schema: {
-      description: 'Finalizar atendimento de um cliente',
+      description: 'Finalizar atendimento de um cliente (APENAS BARBEIROS)',
       tags: ['fila'],
       body: {
         type: 'object',

@@ -1,5 +1,6 @@
 const { supabase } = require('../config/database');
 const { barbeariaSchema, barbeariaUpdateSchema } = require('../schemas/barbearia');
+const { checkAdminRole } = require('../middlewares/rolePermissions');
 
 async function barbeariaRoutes(fastify, options) {
   /**
@@ -107,7 +108,7 @@ async function barbeariaRoutes(fastify, options) {
    *         description: Acesso negado
    */
   fastify.post('/', {
-    preValidation: [fastify.authenticate, fastify.authorize(['admin'])],
+    preValidation: [fastify.authenticate, checkAdminRole],
     schema: barbeariaSchema
   }, async (request, reply) => {
     try {
@@ -165,7 +166,7 @@ async function barbeariaRoutes(fastify, options) {
    *         description: Acesso negado
    */
   fastify.put('/:id', {
-    preValidation: [fastify.authenticate, fastify.authorize(['admin'])],
+    preValidation: [fastify.authenticate, checkAdminRole],
     schema: barbeariaUpdateSchema
   }, async (request, reply) => {
     try {
@@ -320,7 +321,7 @@ async function barbeariaRoutes(fastify, options) {
    *         description: Acesso negado
    */
   fastify.delete('/:id', {
-    preValidation: [fastify.authenticate, fastify.authorize(['admin'])]
+    preValidation: [fastify.authenticate, checkAdminRole]
   }, async (request, reply) => {
     try {
       const { id } = request.params;

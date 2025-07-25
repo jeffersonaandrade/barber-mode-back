@@ -1,10 +1,12 @@
+const { checkAdminOrGerenteRole } = require('../middlewares/rolePermissions');
+
 // Versão sem fastify-plugin (funcionando)
 async function historicoRoutes(fastify, options) {
 
 
   // Histórico de atendimentos
   fastify.get('/historico', {
-    preValidation: [fastify.authenticate],
+    preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
     schema: {
       description: 'Histórico de atendimentos',
       tags: ['historico'],
@@ -82,7 +84,7 @@ async function historicoRoutes(fastify, options) {
 
   // Relatórios e estatísticas
   fastify.get('/historico/relatorios', {
-    preValidation: [fastify.authenticate],
+    preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
     schema: {
       description: 'Relatórios e estatísticas de atendimentos',
       tags: ['historico'],

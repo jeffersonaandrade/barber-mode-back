@@ -1,4 +1,5 @@
 const { supabase } = require('../config/database');
+const { checkAdminOrGerenteRole } = require('../middlewares/rolePermissions');
 
 async function avaliacaoRoutes(fastify, options) {
   /**
@@ -156,7 +157,7 @@ async function avaliacaoRoutes(fastify, options) {
    *         description: Acesso negado
    */
   fastify.get('/', {
-    preValidation: [fastify.authenticate, fastify.authorize(['admin', 'gerente', 'barbeiro'])]
+    preValidation: [fastify.authenticate, checkAdminOrGerenteRole]
   }, async (request, reply) => {
     try {
       const {

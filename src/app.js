@@ -12,10 +12,10 @@ const supabasePlugin = require('./plugins/supabase');
 const AuthController = require('./controllers/authController');
 
 // Importar rotas
-const barbeariaRoutes = require('./routes/barbearias');
-const filaRoutes = require('./routes/fila');
-const avaliacoesRoutes = require('./routes/avaliacoes');
-const usersRoutes = require('./routes/users');
+const barbeariaRoutes = require('./routes/barbearias/index');
+const filaRoutes = require('./routes/fila/index');
+const avaliacoesRoutes = require('./routes/avaliacoes/index');
+const usersRoutes = require('./routes/users/index');
 const historicoRoutes = require('./routes/historico');
 
 
@@ -37,23 +37,7 @@ async function configureServer() {
   await fastify.register(usersRoutes, { prefix: '/api/users' });
   await fastify.register(historicoRoutes, { prefix: '/api' });
 
-  // Rota de teste direta para verificar se o problema é no plugin
-  fastify.get('/api/test-historico', async (request, reply) => {
-    return { 
-      success: true, 
-      message: 'Rota de teste direta funcionando',
-      timestamp: new Date().toISOString()
-    };
-  });
-
-  // Rota de debug para testar se o problema é no plugin
-  fastify.get('/api/historico-debug', async (request, reply) => {
-    return {
-      success: true,
-      message: 'Rota debug funcionando',
-      timestamp: new Date().toISOString()
-    };
-  });
+  // Rotas de debug removidas para produção
 
 // Rota de health check
 fastify.get('/health', {
