@@ -1,14 +1,13 @@
-const { checkAdminOrGerenteRole } = require('../middlewares/rolePermissions');
+const { checkHistoricoAccess, checkAdminOrGerenteRole } = require('../middlewares/rolePermissions');
 
 // Versão sem fastify-plugin (funcionando)
 async function historicoRoutes(fastify, options) {
 
-
   // Histórico de atendimentos
   fastify.get('/historico', {
-    preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
+    preValidation: [fastify.authenticate, checkHistoricoAccess],
     schema: {
-      description: 'Histórico de atendimentos',
+      description: 'Histórico de atendimentos (ADMIN/GERENTE: todo histórico, BARBEIRO: apenas próprio)',
       tags: ['historico'],
       security: [{ Bearer: [] }],
       querystring: {
@@ -82,11 +81,11 @@ async function historicoRoutes(fastify, options) {
     }
   });
 
-  // Relatórios e estatísticas
+  // Relatórios e estatísticas (apenas ADMIN/GERENTE)
   fastify.get('/historico/relatorios', {
     preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
     schema: {
-      description: 'Relatórios e estatísticas de atendimentos',
+      description: 'Relatórios e estatísticas de atendimentos (apenas ADMIN/GERENTE)',
       tags: ['historico'],
       security: [{ Bearer: [] }]
     }

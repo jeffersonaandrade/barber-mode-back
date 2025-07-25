@@ -210,6 +210,52 @@ async function checkBarbeiroBarbeariaAccess(request, reply) {
 }
 
 /**
+ * Middleware para verificar acesso ao histórico
+ * - ADMIN/GERENTE: podem ver todo o histórico
+ * - BARBEIRO: só pode ver seu próprio histórico
+ * @param {import('fastify').FastifyRequest & { user: User }} request
+ * @param {import('fastify').FastifyReply} reply
+ */
+async function checkHistoricoAccess(request, reply) {
+  const userRole = request.user?.role;
+  const userId = request.user?.id;
+  const { barbeiro_id } = request.query;
+
+  try {
+    // Admin e Gerente podem acessar qualquer histórico
+    if (hasRole(request.user, ['admin', 'gerente'])) {
+      return;
+    }
+
+    // Barbeiro só pode ver seu próprio histórico
+    if (userRole === 'barbeiro') {
+      // Se não foi especificado barbeiro_id, usar o ID do usuário logado
+      if (!barbeiro_id) {
+        request.query.barbeiro_id = userId;
+        return;
+      }
+
+      // Se foi especificado um barbeiro_id diferente do usuário logado, bloquear
+      if (barbeiro_id !== userId) {
+        return reply.status(403).send(
+          createAccessError('ACCESS_DENIED', 'Você só pode visualizar seu próprio histórico')
+        );
+      }
+    }
+
+    // Se chegou aqui, é um role não permitido
+    return reply.status(403).send(
+      createAccessError('ACCESS_DENIED', 'Apenas administradores, gerentes e barbeiros podem acessar este recurso')
+    );
+  } catch (error) {
+    console.error('Erro em checkHistoricoAccess:', error);
+    return reply.status(500).send(
+      createAccessError('INTERNAL_ERROR', 'Erro ao verificar acesso ao histórico')
+    );
+  }
+}
+
+/**
  * Middleware genérico para verificar múltiplas roles
  * @param {string|string[]} allowedRoles - Roles permitidos
  * @returns {Function} Middleware function
@@ -290,6 +336,7 @@ module.exports = {
   checkAdminOrGerenteRole,
   checkGerenteBarbeariaAccess,
   checkBarbeiroBarbeariaAccess,
+  checkHistoricoAccess, // Novo middleware
   
   // Middlewares genéricos
   requireRoles,
