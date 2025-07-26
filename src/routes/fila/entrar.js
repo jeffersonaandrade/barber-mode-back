@@ -32,53 +32,19 @@ async function entrarNaFila(fastify, options) {
   const filaService = new FilaService(fastify.supabase);
 
   fastify.post('/fila/entrar', {
-    preHandler: [validateFilaEntry],
-    schema: {
-      description: 'Adicionar cliente à fila (PÚBLICO)',
-      tags: ['fila'],
-      body: {
-        type: 'object',
-        required: ['nome', 'telefone', 'barbearia_id'],
-        properties: {
-          nome: { type: 'string' },
-          telefone: { type: 'string' },
-          barbearia_id: { type: 'integer' },
-          barbeiro_id: { type: 'string', format: 'uuid' }
-        }
-      },
-      response: {
-        201: {
-          description: 'Cliente adicionado com sucesso',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            data: {
-              type: 'object',
-              properties: {
-                cliente: { type: 'object' },
-                qr_code_fila: { type: 'string' },
-                qr_code_status: { type: 'string' },
-                posicao: { type: 'integer' }
-              }
-            }
-          }
-        }
-      }
-    }
-    // SEM autenticação - endpoint público
-      }, async (request, reply) => {
-      try {
-        const { nome, telefone, barbearia_id, barbeiro_id } = request.body;
-        
-        // Usar serviço para adicionar cliente na fila
-        const resultado = await filaService.adicionarClienteNaFila({
-          nome,
-          telefone,
-          barbearia_id,
-          barbeiro_id
-        });
+    // preHandler: [validateFilaEntry] // REMOVIDO TEMPORARIAMENTE
+  }, async (request, reply) => {
+    try {
+      const { nome, telefone, barbearia_id, barbeiro_id } = request.body;
       
+      // Usar serviço para adicionar cliente na fila
+      const resultado = await filaService.adicionarClienteNaFila({
+        nome,
+        telefone,
+        barbearia_id,
+        barbeiro_id
+      });
+    
       return reply.status(201).send({
         success: true,
         message: 'Cliente adicionado à fila com sucesso',

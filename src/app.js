@@ -17,6 +17,7 @@ const filaRoutes = require('./routes/fila/index');
 const avaliacoesRoutes = require('./routes/avaliacoes/index');
 const usersRoutes = require('./routes/users/index');
 const historicoRoutes = require('./routes/historico');
+const relatorioRoutes = require('./routes/relatorios');
 
 
 // Função para configurar o servidor
@@ -36,6 +37,7 @@ async function configureServer() {
   await fastify.register(avaliacoesRoutes, { prefix: '/api/avaliacoes' });
   await fastify.register(usersRoutes, { prefix: '/api/users' });
   await fastify.register(historicoRoutes, { prefix: '/api' });
+  await fastify.register(relatorioRoutes, { prefix: '/api' });
 
   // Rotas de debug removidas para produção
 

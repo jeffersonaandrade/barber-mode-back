@@ -1,5 +1,6 @@
 const { checkBarbeiroBarbeariaAccess } = require('../../middlewares/barbeariaAccess');
-const { checkBarbeiroRole } = require('../../middlewares/rolePermissions');
+const { checkBarbeiroRole, checkAdminRole } = require('../../middlewares/rolePermissions');
+const FilaService = require('../../services/filaService');
 
 /**
  * @swagger
@@ -94,6 +95,14 @@ async function gerenciarFila(fastify, options) {
         });
       }
       
+      // Reordenar fila após chamar próximo cliente (quem estava aguardando move para cima)
+      const filaService = new FilaService(fastify.supabase);
+      const reordenacaoSucesso = await filaService.reordenarFila(barbearia_id);
+      
+      if (!reordenacaoSucesso) {
+        console.warn(`[BARBEIRO] Próximo cliente chamado mas falha na reordenação da fila ${barbearia_id}`);
+      }
+      
       return reply.status(200).send({
         success: true,
         message: 'Próximo cliente chamado com sucesso',
@@ -108,6 +117,10 @@ async function gerenciarFila(fastify, options) {
           barbearia: {
             id: barbearia.id,
             nome: barbearia.nome
+          },
+          reordenacao: {
+            sucesso: reordenacaoSucesso,
+            mensagem: reordenacaoSucesso ? 'Fila reordenada automaticamente' : 'Fila não foi reordenada'
           }
         }
       });
@@ -184,6 +197,14 @@ async function gerenciarFila(fastify, options) {
         });
       }
       
+      // Reordenar fila após iniciar atendimento (cliente sai da fila)
+      const filaService = new FilaService(fastify.supabase);
+      const reordenacaoSucesso = await filaService.reordenarFila(cliente.barbearia_id);
+      
+      if (!reordenacaoSucesso) {
+        console.warn(`[BARBEIRO] Atendimento iniciado mas falha na reordenação da fila ${cliente.barbearia_id}`);
+      }
+      
       return reply.status(200).send({
         success: true,
         message: 'Atendimento iniciado com sucesso',
@@ -194,6 +215,10 @@ async function gerenciarFila(fastify, options) {
             telefone: cliente.telefone,
             posicao: cliente.posicao,
             status: 'atendendo'
+          },
+          reordenacao: {
+            sucesso: reordenacaoSucesso,
+            mensagem: reordenacaoSucesso ? 'Fila reordenada automaticamente' : 'Fila não foi reordenada'
           }
         }
       });
@@ -232,7 +257,7 @@ async function gerenciarFila(fastify, options) {
       // Verificar se o cliente existe
       const { data: cliente, error: clienteError } = await fastify.supabase
         .from('clientes')
-        .select('id, nome, status, barbeiro_id')
+        .select('id, nome, status, barbeiro_id, barbearia_id')
         .eq('id', cliente_id)
         .in('status', ['aguardando', 'proximo', 'atendendo'])
         .single();
@@ -268,11 +293,124 @@ async function gerenciarFila(fastify, options) {
         });
       }
       
+      // Reordenar fila após remoção
+      const filaService = new FilaService(fastify.supabase);
+      const reordenacaoSucesso = await filaService.reordenarFila(cliente.barbearia_id);
+      
+      if (!reordenacaoSucesso) {
+        console.warn(`[BARBEIRO] Cliente removido mas falha na reordenação da fila ${cliente.barbearia_id}`);
+      }
+      
       return reply.status(200).send({
         success: true,
-        message: 'Cliente removido da fila com sucesso'
+        message: 'Cliente removido da fila com sucesso',
+        data: {
+          reordenacao: {
+            sucesso: reordenacaoSucesso,
+            mensagem: reordenacaoSucesso ? 'Fila reordenada automaticamente' : 'Fila não foi reordenada'
+          }
+        }
       });
     } catch (error) {
+      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Remover cliente da fila (ADMIN)
+  fastify.post('/fila/admin/remover/:cliente_id', {
+    schema: {
+      description: 'Remover cliente da fila (APENAS ADMIN)',
+      tags: ['fila'],
+      params: {
+        type: 'object',
+        required: ['cliente_id'],
+        properties: { cliente_id: { type: 'string', format: 'uuid' } }
+      },
+      body: {
+        type: 'object',
+        properties: {}
+      },
+      response: {
+        200: {
+          description: 'Cliente removido da fila',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: { type: 'object' }
+          }
+        }
+      }
+    },
+    preHandler: [fastify.authenticate, checkAdminRole]
+  }, async (request, reply) => {
+    try {
+      const { cliente_id } = request.params;
+      const adminId = request.user.id;
+      
+      // Verificar se o cliente existe
+      const { data: cliente, error: clienteError } = await fastify.supabase
+        .from('clientes')
+        .select('id, nome, telefone, status, barbearia_id, barbeiro_id, created_at')
+        .eq('id', cliente_id)
+        .in('status', ['aguardando', 'proximo', 'atendendo'])
+        .single();
+        
+      if (clienteError || !cliente) {
+        return reply.status(404).send({ 
+          success: false, 
+          error: 'Cliente não encontrado ou não está na fila' 
+        });
+      }
+      
+      // Atualizar status do cliente para 'removido'
+      const { error: updateError } = await fastify.supabase
+        .from('clientes')
+        .update({ 
+          status: 'removido',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cliente_id);
+        
+      if (updateError) {
+        return reply.status(500).send({ 
+          success: false, 
+          error: 'Erro ao remover cliente da fila' 
+        });
+      }
+      
+      // Reordenar fila após remoção
+      const filaService = new FilaService(fastify.supabase);
+      const reordenacaoSucesso = await filaService.reordenarFila(cliente.barbearia_id);
+      
+      if (!reordenacaoSucesso) {
+        console.warn(`[ADMIN] Cliente removido mas falha na reordenação da fila ${cliente.barbearia_id}`);
+      }
+      
+      // Registrar ação administrativa (para auditoria)
+      console.log(`[ADMIN] Cliente ${cliente.nome} (${cliente.telefone}) removido da fila por admin ${adminId}. Reordenação: ${reordenacaoSucesso ? 'OK' : 'FALHA'}`);
+      
+      return reply.status(200).send({
+        success: true,
+        message: 'Cliente removido da fila com sucesso',
+        data: {
+          cliente: {
+            id: cliente.id,
+            nome: cliente.nome,
+            telefone: cliente.telefone,
+            status: 'removido',
+            barbearia_id: cliente.barbearia_id,
+            admin_removido_por: adminId,
+            data_remocao: new Date().toISOString()
+          },
+          reordenacao: {
+            sucesso: reordenacaoSucesso,
+            mensagem: reordenacaoSucesso ? 'Fila reordenada automaticamente' : 'Fila não foi reordenada'
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao remover cliente (admin):', error);
       return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
     }
   });
@@ -378,6 +516,103 @@ async function gerenciarFila(fastify, options) {
         }
       });
     } catch (error) {
+      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Forçar reordenação da fila (ADMIN/BARBEIRO)
+  fastify.post('/fila/reordenar/:barbearia_id', {
+    schema: {
+      description: 'Forçar reordenação da fila (ADMIN/BARBEIRO)',
+      tags: ['fila'],
+      params: {
+        type: 'object',
+        required: ['barbearia_id'],
+        properties: { barbearia_id: { type: 'string' } }
+      },
+      response: {
+        200: {
+          description: 'Fila reordenada com sucesso',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            data: { type: 'object' }
+          }
+        }
+      }
+    },
+    preHandler: [fastify.authenticate, checkBarbeiroRole]
+  }, async (request, reply) => {
+    try {
+      const { barbearia_id } = request.params;
+      
+      // Verificar se a barbearia existe
+      const { data: barbearia, error: barbeariaError } = await fastify.supabase
+        .from('barbearias')
+        .select('id, nome')
+        .eq('id', barbearia_id)
+        .single();
+        
+      if (barbeariaError || !barbearia) {
+        return reply.status(404).send({ 
+          success: false, 
+          error: 'Barbearia não encontrada' 
+        });
+      }
+      
+      // Reordenar fila
+      const filaService = new FilaService(fastify.supabase);
+      const reordenacaoSucesso = await filaService.reordenarFila(barbearia_id);
+      
+      if (!reordenacaoSucesso) {
+        return reply.status(500).send({ 
+          success: false, 
+          error: 'Erro ao reordenar fila' 
+        });
+      }
+      
+      // Obter fila atualizada
+      const { data: clientesAtualizados, error: clientesError } = await fastify.supabase
+        .from('clientes')
+        .select(`
+          id,
+          nome,
+          telefone,
+          posicao,
+          status,
+          created_at,
+          barbeiro:users(id, nome)
+        `)
+        .eq('barbearia_id', barbearia_id)
+        .in('status', ['aguardando', 'proximo', 'atendendo'])
+        .order('posicao', { ascending: true });
+        
+      if (clientesError) {
+        return reply.status(500).send({ 
+          success: false, 
+          error: 'Erro ao buscar fila atualizada' 
+        });
+      }
+      
+      return reply.status(200).send({
+        success: true,
+        message: 'Fila reordenada com sucesso',
+        data: {
+          barbearia: {
+            id: barbearia.id,
+            nome: barbearia.nome
+          },
+          clientes: clientesAtualizados,
+          total_clientes: clientesAtualizados.length,
+          reordenacao: {
+            sucesso: true,
+            mensagem: 'Fila reordenada automaticamente'
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao reordenar fila:', error);
       return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
     }
   });

@@ -37,6 +37,8 @@ async function barbeariaRoutes(fastify, options) {
     }
   });
 
+
+
   /**
    * @swagger
    * /api/barbearias/{id}:

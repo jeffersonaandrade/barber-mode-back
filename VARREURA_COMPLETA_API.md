@@ -60,22 +60,26 @@
 - `GET /api/auth/me` - Dados do usuário
 - `POST /api/auth/logout` - Logout
 
-### **🏪 BARBEARIAS (6 endpoints)**
+### **🏪 BARBEARIAS (7 endpoints)**
 - `GET /api/barbearias` - Listar (PÚBLICO)
+- `GET /api/barbearias/disponiveis` - Listar com barbeiros ativos (PÚBLICO)
 - `GET /api/barbearias/{id}` - Buscar (PÚBLICO)
 - `POST /api/barbearias` - Criar (ADMIN)
 - `PUT /api/barbearias/{id}` - Atualizar (ADMIN)
 - `DELETE /api/barbearias/{id}` - Remover (ADMIN)
 - `POST /api/barbearias/{id}/fila/proximo` - Chamar próximo (BARBEIRO)
 
-### **👥 USUÁRIOS (7 endpoints)**
+### **👥 USUÁRIOS (9 endpoints)**
 - `GET /api/users` - Listar (ADMIN)
 - `PUT /api/users/{id}` - Atualizar (ADMIN)
 - `DELETE /api/users/{id}` - Deletar (ADMIN)
 - `GET /api/users/barbeiros` - Listar barbeiros (MISTO)
 - `GET /api/users/barbeiros/meu-status` - Status do barbeiro (BARBEIRO)
+- `GET /api/users/barbeiros/minhas-barbearias` - Listar barbearias da rede (BARBEIRO)
+- `POST /api/users/barbeiros/alterar-status` - Barbeiro altera próprio status (BARBEIRO)
 - `POST /api/users/barbeiros/ativar` - Ativar barbeiro (ADMIN/GERENTE)
 - `POST /api/users/barbeiros/desativar` - Desativar barbeiro (ADMIN/GERENTE)
+- `POST /api/users/barbeiros/desativar-todos` - Desativar todos os barbeiros (ADMIN/GERENTE)
 
 ### **📋 FILA (9 endpoints)**
 - `POST /api/fila/entrar` - Entrar na fila (PÚBLICO)

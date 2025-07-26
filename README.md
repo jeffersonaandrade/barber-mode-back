@@ -5,6 +5,7 @@ Sistema de gerenciamento de filas para barbearias com múltiplas unidades, desen
 ## 🚀 Funcionalidades
 
 - **Sistema de Filas**: Gerenciamento inteligente de filas por barbearia
+- **🕐 Sistema de Agendamentos**: Agendamentos com prioridade na fila
 - **QR Codes**: Geração automática de QR codes para entrada e status
 - **Multi-unidades**: Suporte a múltiplas barbearias
 - **Perfis de Usuário**: Admin, Gerente e Barbeiro com permissões específicas
@@ -70,6 +71,15 @@ CORS_ORIGIN=http://localhost:3000,http://localhost:3001
 Execute os scripts SQL do arquivo `database/schema.sql` no seu projeto Supabase.
 
 **Importante:** O schema já inclui políticas RLS permissivas para desenvolvimento. Se encontrar erros de RLS, consulte `database/README-RLS.md` para mais informações.
+
+**🕐 Sistema de Agendamentos:** Para ativar o sistema de agendamentos com prioridade na fila, execute também:
+```sql
+-- 1. Criar estrutura de agendamentos
+-- Execute: database/agendamentos_schema.sql
+
+-- 2. Atualizar tabela clientes
+-- Execute: database/update_clientes_agendamento.sql
+```
 
 5. **Execute o projeto**
 ```bash
@@ -153,6 +163,7 @@ curl -X GET "http://localhost:3000/api/historico?barbeiro_id=cf8053c6-3dc9-4bb6-
 
 ## 📋 **Documentação Específica**
 
+- **🕐 Sistema de Agendamentos**: Consulte `SISTEMA_AGENDAMENTOS.md` para detalhes sobre agendamentos com prioridade na fila
 - **Gerenciamento de Barbeiros**: Consulte `BARBEIROS_MANAGEMENT.md` para detalhes sobre ativação/desativação de barbeiros nas barbearias
 - **Políticas RLS**: Consulte `database/README-RLS.md` para informações sobre Row Level Security
 
@@ -188,6 +199,17 @@ src/
     ├── fila.js           # Rotas do sistema de fila
     ├── avaliacoes.js     # Rotas de avaliações
     └── historico.js      # Rotas de histórico
+
+database/
+├── schema.sql            # Schema principal do banco
+├── agendamentos_schema.sql    # 🕐 Sistema de agendamentos
+├── update_clientes_agendamento.sql # Atualizações para agendamentos
+└── README-RLS.md         # Documentação RLS
+
+Documentação/
+├── SISTEMA_AGENDAMENTOS.md    # 🕐 Documentação completa dos agendamentos
+├── EXEMPLO_AGENDAMENTOS.sql   # Exemplos práticos para testar
+└── API_DOCUMENTATION_COMPLETE.md # Documentação da API
 ```
 
 ## 🔐 Autenticação e Permissões

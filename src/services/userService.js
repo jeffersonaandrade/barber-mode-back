@@ -20,16 +20,22 @@ class UserService {
   async listarBarbeiros(filtros) {
     const { barbearia_id, status = 'ativo', isPublic = false } = filtros;
 
-    // Verificar se a barbearia existe e está ativa
-    const { data: barbearia, error: barbeariaError } = await this.supabase
-      .from('barbearias')
-      .select('id, nome, ativo')
-      .eq('id', barbearia_id)
-      .eq('ativo', true)
-      .single();
-      
-    if (barbeariaError || !barbearia) {
-      throw new Error('Barbearia não encontrada ou inativa');
+    // Se barbearia_id foi fornecido, verificar se existe e está ativa
+    let barbearia = null;
+    if (barbearia_id) {
+      const { data: barbeariaData, error: barbeariaError } = await this.supabase
+        .from('barbearias')
+        .select('id, nome, ativo')
+        .eq('id', barbearia_id)
+        .eq('ativo', true)
+        .single();
+        
+      if (barbeariaError || !barbeariaData) {
+        console.error('Erro ao buscar barbearia:', barbeariaError);
+        console.error('Barbearia ID:', barbearia_id);
+        throw new Error('Barbearia não encontrada ou inativa');
+      }
+      barbearia = barbeariaData;
     }
     
     // Construir query base
@@ -38,15 +44,19 @@ class UserService {
       .select(`
         id,
         ativo,
+        barbearia_id,
         users(
           id,
           nome,
           email,
-          telefone,
-          foto_url
+          telefone
         )
-      `)
-      .eq('barbearia_id', barbearia_id);
+      `);
+    
+    // Filtrar por barbearia se especificada
+    if (barbearia_id) {
+      query = query.eq('barbearia_id', barbearia_id);
+    }
     
     // Aplicar filtros de status
     if (status === 'ativo') {
@@ -61,12 +71,14 @@ class UserService {
     const { data: barbeiros, error: barbeirosError } = await query;
     
     if (barbeirosError) {
+      console.error('Erro na query de barbeiros:', barbeirosError);
+      console.error('Query params:', { barbearia_id, status, isPublic });
       throw new Error('Erro interno do servidor');
     }
     
     // Filtrar barbeiros disponíveis se necessário
     let barbeirosFiltrados = barbeiros;
-    if (status === 'disponivel') {
+    if (status === 'disponivel' && barbearia_id) {
       // Verificar quais barbeiros estão atendendo
       const { data: barbeirosAtendendo } = await this.supabase
         .from('clientes')
@@ -84,8 +96,7 @@ class UserService {
         // Dados limitados para clientes
         return {
           id: barbeiro.users.id,
-          nome: barbeiro.users.nome,
-          foto_url: barbeiro.users.foto_url
+          nome: barbeiro.users.nome
         };
       } else {
         // Dados completos para funcionários
@@ -94,17 +105,16 @@ class UserService {
           nome: barbeiro.users.nome,
           email: barbeiro.users.email,
           telefone: barbeiro.users.telefone,
-          foto_url: barbeiro.users.foto_url,
           ativo: barbeiro.ativo
         };
       }
     });
     
     return {
-      barbearia: {
+      barbearia: barbearia ? {
         id: barbearia.id,
         nome: barbearia.nome
-      },
+      } : null,
       barbeiros: barbeirosFormatados,
       total: barbeirosFormatados.length
     };
@@ -350,7 +360,7 @@ class UserService {
   async listarUsuarios() {
     const { data: users, error: usersError } = await this.supabase
       .from('users')
-      .select('id, nome, email, role, ativo, created_at')
+      .select('id, nome, email, telefone, role, active, created_at, updated_at')
       .order('created_at', { ascending: false });
       
     if (usersError) {
@@ -362,9 +372,11 @@ class UserService {
         id: user.id,
         nome: user.nome,
         email: user.email,
+        telefone: user.telefone,
         role: user.role,
-        ativo: user.ativo,
-        created_at: user.created_at
+        ativo: user.active, // Mapear 'active' para 'ativo' para manter compatibilidade
+        created_at: user.created_at,
+        updated_at: user.updated_at
       })),
       total: users.length
     };
@@ -422,6 +434,210 @@ class UserService {
   }
 
   /**
+   * Barbeiro altera seu próprio status (ativo/inativo)
+   * @param {Object} dados - Dados para alteração
+   * @param {string} dados.user_id - ID do barbeiro
+   * @param {number} dados.barbearia_id - ID da barbearia
+   * @param {boolean} dados.ativo - Novo status (true = ativo, false = inativo)
+   * @returns {Promise<Object>} Status atualizado
+   */
+  async alterarStatusBarbeiro(dados) {
+    const { user_id, barbearia_id, ativo } = dados;
+
+    console.log(`Alterando status do barbeiro ${user_id} na barbearia ${barbearia_id} para ${ativo}`);
+
+    // Verificar se a barbearia existe e está ativa
+    const { data: barbearia, error: barbeariaError } = await this.supabase
+      .from('barbearias')
+      .select('id, nome, ativo')
+      .eq('id', barbearia_id)
+      .single();
+      
+    if (barbeariaError || !barbearia) {
+      throw new Error(`Barbearia ID ${barbearia_id} não encontrada`);
+    }
+    
+    if (!barbearia.ativo) {
+      throw new Error(`Barbearia ${barbearia.nome} está inativa`);
+    }
+
+    // Verificar se o barbeiro está associado à barbearia
+    let { data: associacao, error: associacaoError } = await this.supabase
+      .from('barbeiros_barbearias')
+      .select('id, ativo, users(id, nome, email)')
+      .eq('user_id', user_id)
+      .eq('barbearia_id', barbearia_id)
+      .single();
+      
+    // Se não existe associação, criar automaticamente (barbeiro tem acesso a todas)
+    if (associacaoError || !associacao) {
+      console.log(`Criando associação para barbeiro ${user_id} na barbearia ${barbearia_id}`);
+      
+      try {
+        // Verificar se o usuário existe e é barbeiro
+        const { data: usuario, error: usuarioError } = await this.supabase
+          .from('users')
+          .select('id, nome, email, role')
+          .eq('id', user_id)
+          .single();
+          
+        if (usuarioError || !usuario) {
+          throw new Error(`Usuário ID ${user_id} não encontrado`);
+        }
+        
+        if (usuario.role !== 'barbeiro') {
+          throw new Error(`Usuário ${usuario.nome} não é um barbeiro`);
+        }
+
+        // Tentar criar a associação
+        // Dados para inserção com campos básicos obrigatórios
+        const dadosInsercao = {
+          user_id: user_id,
+          barbearia_id: barbearia_id,
+          ativo: false, // Começa inativo
+          dias_trabalho: ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'], // Dias padrão
+          horario_inicio: '08:00', // Horário padrão de início
+          horario_fim: '18:00', // Horário padrão de fim
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        console.log('Dados para inserção:', dadosInsercao);
+
+        const { data: novaAssociacao, error: createError } = await this.supabase
+          .from('barbeiros_barbearias')
+          .insert(dadosInsercao)
+          .select('id, ativo, users(id, nome, email)')
+          .single();
+          
+        if (createError) {
+          console.error('Erro ao criar associação:', createError);
+          
+          // Se for erro de constraint unique, tentar buscar a associação existente
+          if (createError.code === '23505') {
+            console.log('Associação já existe, buscando...');
+            const { data: assocExistente, error: buscaError } = await this.supabase
+              .from('barbeiros_barbearias')
+              .select('id, ativo, users(id, nome, email)')
+              .eq('user_id', user_id)
+              .eq('barbearia_id', barbearia_id)
+              .single();
+              
+            if (buscaError || !assocExistente) {
+              throw new Error(`Erro inesperado: ${createError.message}`);
+            }
+            
+            associacao = assocExistente;
+            console.log('Associação encontrada:', associacao);
+          } else {
+            throw new Error(`Erro ao criar associação com a barbearia: ${createError.message}`);
+          }
+        } else {
+          associacao = novaAssociacao;
+          console.log('Associação criada com sucesso:', associacao);
+        }
+      } catch (error) {
+        console.error('Erro completo:', error);
+        throw error;
+      }
+    }
+
+    // Atualizar status do barbeiro
+    const { data: barbeiroAtualizado, error: updateError } = await this.supabase
+      .from('barbeiros_barbearias')
+      .update({ 
+        ativo: ativo,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', user_id)
+      .eq('barbearia_id', barbearia_id)
+      .select(`
+        id,
+        ativo,
+        updated_at,
+        users(id, nome, email),
+        barbearias(id, nome)
+      `)
+      .single();
+      
+    if (updateError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    return {
+      barbeiro: {
+        id: barbeiroAtualizado.users.id,
+        nome: barbeiroAtualizado.users.nome,
+        email: barbeiroAtualizado.users.email
+      },
+      barbearia: {
+        id: barbeiroAtualizado.barbearias.id,
+        nome: barbeiroAtualizado.barbearias.nome
+      },
+      ativo: barbeiroAtualizado.ativo,
+      updated_at: barbeiroAtualizado.updated_at
+    };
+  }
+
+  /**
+   * Listar todas as barbearias disponíveis para o barbeiro
+   * @param {string} userId - ID do barbeiro
+   * @returns {Promise<Array>} Lista de barbearias
+   */
+  async listarBarbeariasDoBarbeiro(userId) {
+    // Buscar TODAS as barbearias ativas da rede
+    const { data: todasBarbearias, error: barbeariasError } = await this.supabase
+      .from('barbearias')
+      .select(`
+        id,
+        nome,
+        endereco,
+        telefone,
+        ativo,
+        created_at,
+        updated_at
+      `)
+      .eq('ativo', true)
+      .order('nome');
+      
+    if (barbeariasError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    // Buscar status do barbeiro em cada barbearia
+    const { data: associacoes, error: associacoesError } = await this.supabase
+      .from('barbeiros_barbearias')
+      .select('barbearia_id, ativo, updated_at')
+      .eq('user_id', userId);
+      
+    if (associacoesError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    // Criar mapa de status por barbearia
+    const statusMap = new Map();
+    associacoes.forEach(assoc => {
+      statusMap.set(assoc.barbearia_id, {
+        ativo: assoc.ativo,
+        updated_at: assoc.updated_at
+      });
+    });
+
+    // Combinar dados: todas as barbearias com status do barbeiro
+    return todasBarbearias.map(barbearia => {
+      const status = statusMap.get(barbearia.id);
+      return {
+        id: barbearia.id,
+        nome: barbearia.nome,
+        endereco: barbearia.endereco,
+        telefone: barbearia.telefone,
+        ativo: status ? status.ativo : false, // Se não tem associação, começa inativo
+        updated_at: status ? status.updated_at : barbearia.created_at
+      };
+    });
+  }
+
+  /**
    * Deletar usuário (ADMIN)
    * @param {string} id - ID do usuário
    * @param {string} adminId - ID do admin que está deletando
@@ -472,6 +688,94 @@ class UserService {
       nome: userExistente.nome,
       email: userExistente.email,
       role: userExistente.role
+    };
+  }
+
+  /**
+   * Desativar todos os barbeiros de uma barbearia (ADMIN/GERENTE)
+   * @param {number} barbearia_id - ID da barbearia
+   * @param {string} adminId - ID do admin/gerente que está executando a ação
+   * @returns {Promise<Object>} Resultado da operação
+   */
+  async desativarTodosBarbeiros(barbearia_id, adminId) {
+    console.log(`Desativando todos os barbeiros da barbearia ${barbearia_id} por ${adminId}`);
+
+    // Verificar se a barbearia existe e está ativa
+    const { data: barbearia, error: barbeariaError } = await this.supabase
+      .from('barbearias')
+      .select('id, nome, ativo')
+      .eq('id', barbearia_id)
+      .single();
+      
+    if (barbeariaError || !barbearia) {
+      throw new Error(`Barbearia ID ${barbearia_id} não encontrada`);
+    }
+    
+    if (!barbearia.ativo) {
+      throw new Error(`Barbearia ${barbearia.nome} está inativa`);
+    }
+
+    // Buscar todos os barbeiros ativos na barbearia
+    const { data: barbeirosAtivos, error: barbeirosError } = await this.supabase
+      .from('barbeiros_barbearias')
+      .select(`
+        id,
+        user_id,
+        ativo,
+        users(id, nome, email)
+      `)
+      .eq('barbearia_id', barbearia_id)
+      .eq('ativo', true);
+      
+    if (barbeirosError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    if (!barbeirosAtivos || barbeirosAtivos.length === 0) {
+      return {
+        barbearia: {
+          id: barbearia.id,
+          nome: barbearia.nome
+        },
+        barbeiros_desativados: 0,
+        message: 'Nenhum barbeiro estava ativo nesta barbearia'
+      };
+    }
+
+    // Desativar todos os barbeiros
+    const { data: barbeirosDesativados, error: updateError } = await this.supabase
+      .from('barbeiros_barbearias')
+      .update({ 
+        ativo: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('barbearia_id', barbearia_id)
+      .eq('ativo', true)
+      .select(`
+        id,
+        user_id,
+        ativo,
+        updated_at,
+        users(id, nome, email)
+      `);
+      
+    if (updateError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    return {
+      barbearia: {
+        id: barbearia.id,
+        nome: barbearia.nome
+      },
+      barbeiros_desativados: barbeirosDesativados.length,
+      barbeiros: barbeirosDesativados.map(b => ({
+        id: b.users.id,
+        nome: b.users.nome,
+        email: b.users.email
+      })),
+      message: `${barbeirosDesativados.length} barbeiro(s) desativado(s) com sucesso`,
+      updated_at: new Date().toISOString()
     };
   }
 }

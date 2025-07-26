@@ -58,8 +58,8 @@ function validateFilaEntry(request, reply) {
   }
   
   // Validar telefone (formato básico)
-  const telefoneRegex = /^[\d\s\-\+\(\)]+$/;
-  if (!telefoneRegex.test(telefone) || telefone.replace(/\D/g, '').length < 10) {
+  const telefoneLimpo = telefone.replace(/\D/g, '');
+  if (telefoneLimpo.length < 10) {
     return reply.status(400).send({
       success: false,
       error: 'Telefone inválido',

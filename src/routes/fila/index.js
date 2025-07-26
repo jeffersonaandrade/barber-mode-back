@@ -9,12 +9,14 @@
  * - visualizar.js: Visualizar fila (privado, público, gerente)
  * - gerenciar.js: Gerenciar fila (próximo, iniciar, remover, finalizar)
  * - status.js: Verificar status do cliente
+ * - estatisticas.js: Estatísticas detalhadas da fila
  */
 
 const entrarNaFila = require('./entrar');
 const visualizarFila = require('./visualizar');
 const gerenciarFila = require('./gerenciar');
 const verificarStatus = require('./status');
+const estatisticasFila = require('./estatisticas');
 
 /**
  * Registra todas as rotas de fila
@@ -27,6 +29,7 @@ async function filaRoutes(fastify, options) {
   await fastify.register(visualizarFila);
   await fastify.register(gerenciarFila);
   await fastify.register(verificarStatus);
+  await fastify.register(estatisticasFila);
 }
 
 module.exports = filaRoutes; 

@@ -41,13 +41,17 @@ async function filaRoutes(fastify, options) {
     // SEM autenticação - endpoint público
   }, async (request, reply) => {
     try {
+      console.log('🔍 [FILA] Iniciando entrada na fila');
       const { nome, telefone, barbearia_id, barbeiro_id } = request.body;
+      console.log('📋 [FILA] Dados recebidos:', { nome, telefone, barbearia_id, barbeiro_id });
       
       // Validações básicas
       if (!nome || !telefone || !barbearia_id) {
+        console.log('❌ [FILA] Dados obrigatórios faltando');
         return reply.status(400).send({ success: false, error: 'Nome, telefone e barbearia_id são obrigatórios' });
       }
       
+      console.log('🔍 [FILA] Verificando barbearia...');
       // Verificar se a barbearia existe e está ativa
       const { data: barbearia, error: barbeariaError } = await fastify.supabase
         .from('barbearias')
@@ -56,12 +60,16 @@ async function filaRoutes(fastify, options) {
         .eq('ativo', true)
         .single();
         
+      console.log('📋 [FILA] Resultado barbearia:', { barbearia, barbeariaError });
+        
       if (barbeariaError || !barbearia) {
+        console.log('❌ [FILA] Barbearia não encontrada ou inativa');
         return reply.status(404).send({ success: false, error: 'Barbearia não encontrada ou inativa' });
       }
       
       // Se barbeiro_id foi especificado, verificar se o barbeiro está ativo na barbearia
       if (barbeiro_id) {
+        console.log('🔍 [FILA] Verificando barbeiro...');
         const { data: barbeiroAtivo, error: barbeiroError } = await fastify.supabase
           .from('barbeiros_barbearias')
           .select('id, ativo')
@@ -70,14 +78,19 @@ async function filaRoutes(fastify, options) {
           .eq('ativo', true)
           .single();
           
+        console.log('📋 [FILA] Resultado barbeiro:', { barbeiroAtivo, barbeiroError });
+          
         if (barbeiroError || !barbeiroAtivo) {
+          console.log('❌ [FILA] Barbeiro não ativo');
           return reply.status(400).send({ success: false, error: 'Barbeiro especificado não está ativo nesta barbearia' });
         }
       }
       
+      console.log('🔍 [FILA] Gerando token...');
       // Gerar token único para o cliente
       const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       
+      console.log('🔍 [FILA] Calculando posição...');
       // Obter posição atual na fila
       const { data: ultimoCliente, error: posicaoError } = await fastify.supabase
         .from('clientes')
@@ -88,8 +101,11 @@ async function filaRoutes(fastify, options) {
         .limit(1)
         .single();
         
+      console.log('📋 [FILA] Resultado posição:', { ultimoCliente, posicaoError });
+        
       const posicao = ultimoCliente ? ultimoCliente.posicao + 1 : 1;
       
+      console.log('🔍 [FILA] Inserindo cliente...');
       // Inserir cliente na fila
       const { data: cliente, error: insertError } = await fastify.supabase
         .from('clientes')
@@ -105,15 +121,20 @@ async function filaRoutes(fastify, options) {
         .select()
         .single();
         
+      console.log('📋 [FILA] Resultado inserção:', { cliente, insertError });
+        
       if (insertError) {
+        console.log('❌ [FILA] Erro na inserção:', insertError);
         return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
       }
       
+      console.log('🔍 [FILA] Gerando QR codes...');
       // Gerar QR codes
       const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
       const qrCodeFila = await QRCode.toDataURL(`${baseUrl}/fila/${cliente.id}`);
       const qrCodeStatus = await QRCode.toDataURL(`${baseUrl}/status/${cliente.token}`);
       
+      console.log('✅ [FILA] Cliente adicionado com sucesso');
       return reply.status(201).send({
         success: true,
         message: 'Cliente adicionado à fila com sucesso',
@@ -131,6 +152,7 @@ async function filaRoutes(fastify, options) {
         }
       });
     } catch (error) {
+      console.log('❌ [FILA] Erro geral:', error);
       return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
     }
   });

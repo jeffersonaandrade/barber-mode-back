@@ -81,7 +81,7 @@ class FilaService {
     const qrCodeFila = await this.gerarQRCodeFila(cliente);
     const qrCodeStatus = await this.gerarQRCodeStatus(cliente);
     
-    return {
+    const resposta = {
       cliente: {
         id: cliente.id,
         nome: cliente.nome,
@@ -94,12 +94,14 @@ class FilaService {
       qr_code_status: qrCodeStatus,
       posicao: cliente.posicao
     };
+    
+    return resposta;
   }
 
   /**
-   * Obter fila completa da barbearia (para funcionários)
+   * Obter fila completa da barbearia
    * @param {number} barbearia_id - ID da barbearia
-   * @returns {Promise<Object>} Fila com clientes e estatísticas
+   * @returns {Promise<Object>} Fila completa
    */
   async obterFilaCompleta(barbearia_id) {
     // Verificar se a barbearia existe
@@ -112,7 +114,15 @@ class FilaService {
       throw new Error('Barbearia não encontrada');
     }
     
-    // Obter clientes na fila
+    // Reordenar fila antes de obter os dados
+    console.log(`[FILA] Reordenando fila antes de obter dados da barbearia ${barbearia_id}`);
+    const reordenacaoSucesso = await this.reordenarFila(barbearia_id);
+    
+    if (!reordenacaoSucesso) {
+      console.warn(`[FILA] Falha na reordenação da fila ${barbearia_id}, mas continuando...`);
+    }
+    
+    // Obter clientes na fila (após reordenação)
     const { data: clientes, error: clientesError } = await this.supabase
       .from('clientes')
       .select(`
@@ -140,12 +150,15 @@ class FilaService {
     const barbeirosAtivosCount = await this.obterBarbeirosAtivosCount(barbearia_id);
     estatisticas.barbeiros_ativos = barbeirosAtivosCount;
     
+    // Filtrar apenas clientes aguardando para o array principal
+    const clientesAguardando = clientes.filter(cliente => cliente.status === 'aguardando');
+    
     return {
       barbearia: {
         id: barbearia.id,
         nome: barbearia.nome
       },
-      clientes: clientes.map(cliente => ({
+      clientes: clientesAguardando.map(cliente => ({
         id: cliente.id,
         nome: cliente.nome,
         telefone: cliente.telefone,
@@ -157,7 +170,11 @@ class FilaService {
           nome: cliente.users.nome
         } : null
       })),
-      estatisticas
+      estatisticas,
+      reordenacao: {
+        sucesso: reordenacaoSucesso,
+        mensagem: reordenacaoSucesso ? 'Fila reordenada automaticamente' : 'Fila não foi reordenada'
+      }
     };
   }
 
@@ -349,6 +366,10 @@ class FilaService {
    * @returns {Promise<number>} Próxima posição
    */
   async calcularProximaPosicao(barbearia_id) {
+    // Primeiro, reordenar a fila para garantir posições sequenciais
+    await this.reordenarFila(barbearia_id);
+    
+    // Agora calcular a próxima posição baseada na fila reordenada
     const { data: ultimoCliente, error: posicaoError } = await this.supabase
       .from('clientes')
       .select('posicao')
@@ -359,6 +380,76 @@ class FilaService {
       .single();
       
     return ultimoCliente ? ultimoCliente.posicao + 1 : 1;
+  }
+
+  /**
+   * Reordenar fila removendo posições de clientes removidos
+   * @param {number} barbearia_id - ID da barbearia
+   * @returns {Promise<boolean>} Sucesso da operação
+   */
+  async reordenarFila(barbearia_id) {
+    try {
+      console.log(`[REORDENAÇÃO] Iniciando reordenação da fila ${barbearia_id}`);
+      
+      // Buscar todos os clientes ativos na fila (APENAS aguardando e próximo)
+      const { data: clientesAtivos, error: clientesError } = await this.supabase
+        .from('clientes')
+        .select('id, nome, posicao, status')
+        .eq('barbearia_id', barbearia_id)
+        .in('status', ['aguardando', 'proximo'])
+        .order('created_at', { ascending: true }); // Ordenar por data de criação
+
+      if (clientesError) {
+        console.error('[REORDENAÇÃO] Erro ao buscar clientes para reordenação:', clientesError);
+        return false;
+      }
+
+      console.log(`[REORDENAÇÃO] Encontrados ${clientesAtivos?.length || 0} clientes ativos`);
+
+      if (!clientesAtivos || clientesAtivos.length === 0) {
+        console.log('[REORDENAÇÃO] Nenhum cliente ativo para reordenar');
+        return true; // Nenhum cliente para reordenar
+      }
+
+      // Reordenar posições sequencialmente começando do 1
+      const updates = clientesAtivos.map((cliente, index) => ({
+        id: cliente.id,
+        nome: cliente.nome,
+        posicao_atual: cliente.posicao,
+        nova_posicao: index + 1
+      }));
+
+      console.log('[REORDENAÇÃO] Posições a serem atualizadas:', updates);
+
+      // Atualizar posições em lote
+      let sucessos = 0;
+      let erros = 0;
+
+      for (const update of updates) {
+        const { error: updateError } = await this.supabase
+          .from('clientes')
+          .update({ 
+            posicao: update.nova_posicao,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', update.id);
+
+        if (updateError) {
+          console.error(`[REORDENAÇÃO] Erro ao atualizar posição do cliente ${update.id} (${update.nome}):`, updateError);
+          erros++;
+        } else {
+          console.log(`[REORDENAÇÃO] Cliente ${update.nome}: posição ${update.posicao_atual} → ${update.nova_posicao}`);
+          sucessos++;
+        }
+      }
+
+      console.log(`[REORDENAÇÃO] Reordenação concluída para barbearia ${barbearia_id}. Sucessos: ${sucessos}, Erros: ${erros}`);
+      
+      return erros === 0; // Retorna true apenas se não houve erros
+    } catch (error) {
+      console.error('[REORDENAÇÃO] Erro na reordenação da fila:', error);
+      return false;
+    }
   }
 
   /**
@@ -425,6 +516,150 @@ class FilaService {
       .eq('barbearia_id', barbearia_id)
       .eq('ativo', true);
     return barbeirosAtivos ? barbeirosAtivos.length : 0;
+  }
+
+  /**
+   * Obter estatísticas detalhadas da fila
+   * @param {number} barbearia_id - ID da barbearia
+   * @returns {Promise<Object>} Estatísticas detalhadas
+   */
+  async obterEstatisticasDetalhadas(barbearia_id) {
+    try {
+      // 1. Estatísticas da fila atual
+      const { data: clientesAtuais, error: clientesError } = await this.supabase
+        .from('clientes')
+        .select('status, created_at, updated_at')
+        .eq('barbearia_id', barbearia_id)
+        .in('status', ['aguardando', 'proximo', 'atendendo', 'finalizado', 'removido']);
+
+      if (clientesError) {
+        throw new Error('Erro ao buscar clientes atuais');
+      }
+
+      const fila = {
+        total: clientesAtuais.filter(c => ['aguardando', 'proximo'].includes(c.status)).length,
+        aguardando: clientesAtuais.filter(c => c.status === 'aguardando').length,
+        proximo: clientesAtuais.filter(c => c.status === 'proximo').length,
+        atendendo: clientesAtuais.filter(c => c.status === 'atendendo').length,
+        finalizado: clientesAtuais.filter(c => c.status === 'finalizado').length,
+        removido: clientesAtuais.filter(c => c.status === 'removido').length
+      };
+
+      // 2. Estatísticas de barbeiros
+      const { data: barbeiros, error: barbeirosError } = await this.supabase
+        .from('barbeiros_barbearias')
+        .select(`
+          id,
+          ativo,
+          users(id, nome)
+        `)
+        .eq('barbearia_id', barbearia_id);
+
+      if (barbeirosError) {
+        throw new Error('Erro ao buscar barbeiros');
+      }
+
+      const barbeirosAtivos = barbeiros.filter(b => b.ativo);
+      const barbeirosAtendendo = clientesAtuais.filter(c => c.status === 'atendendo').length;
+
+      const barbeirosStats = {
+        total: barbeirosAtivos.length,
+        atendendo: barbeirosAtendendo,
+        disponiveis: Math.max(0, barbeirosAtivos.length - barbeirosAtendendo),
+        ocupados: barbeirosAtendendo
+      };
+
+      // 3. Tempos médios (últimas 24h) - CORRIGIDO
+      const vinteQuatroHorasAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      // Buscar TODOS os clientes das últimas 24h (incluindo os que ainda estão na fila)
+      const { data: clientes24h, error: clientes24hError } = await this.supabase
+        .from('clientes')
+        .select('created_at, updated_at, status')
+        .eq('barbearia_id', barbearia_id)
+        .gte('created_at', vinteQuatroHorasAtras.toISOString());
+
+      if (clientes24hError) {
+        throw new Error('Erro ao buscar clientes das últimas 24h');
+      }
+
+      console.log(`[ESTATISTICAS] Encontrados ${clientes24h?.length || 0} clientes nas últimas 24h`);
+
+      // Calcular tempos médios CORRETOS
+      const temposEspera = [];
+      const temposAtendimento = [];
+      
+      clientes24h.forEach(cliente => {
+        const created = new Date(cliente.created_at);
+        const updated = new Date(cliente.updated_at);
+        const agora = new Date();
+        
+        // Para clientes ainda na fila, usar tempo até agora
+        const tempoFinal = cliente.status === 'aguardando' || cliente.status === 'proximo' || cliente.status === 'atendendo' 
+          ? agora 
+          : updated;
+        
+        // Tempo total de espera (criação até finalização/atual)
+        const tempoTotalMinutos = (tempoFinal - created) / (1000 * 60);
+        
+        console.log(`[ESTATISTICAS] Cliente ${cliente.status}: criado ${created.toISOString()}, tempo total: ${Math.round(tempoTotalMinutos)} min`);
+        
+        temposEspera.push(tempoTotalMinutos);
+        
+        // Para atendimentos finalizados, estimar tempo de atendimento
+        if (cliente.status === 'finalizado') {
+          // Estimativa: 30% do tempo total é atendimento
+          const tempoAtendimento = tempoTotalMinutos * 0.3;
+          temposAtendimento.push(tempoAtendimento);
+        }
+      });
+
+      const tempoMedioEspera = temposEspera.length > 0 
+        ? Math.round(temposEspera.reduce((a, b) => a + b, 0) / temposEspera.length)
+        : 0;
+
+      const tempoMedioAtendimento = temposAtendimento.length > 0
+        ? Math.round(temposAtendimento.reduce((a, b) => a + b, 0) / temposAtendimento.length)
+        : 30; // padrão de 30 minutos
+
+      console.log(`[ESTATISTICAS] Tempo médio de espera: ${tempoMedioEspera} minutos`);
+      console.log(`[ESTATISTICAS] Tempo médio de atendimento: ${tempoMedioAtendimento} minutos`);
+
+      // Tempo estimado para o próximo cliente
+      const tempoEstimadoProximo = barbeirosStats.disponiveis > 0 
+        ? Math.round(tempoMedioEspera / barbeirosStats.disponiveis)
+        : tempoMedioEspera;
+
+      const tempos = {
+        medioEspera: tempoMedioEspera,
+        medioAtendimento: tempoMedioAtendimento,
+        estimadoProximo: Math.max(1, tempoEstimadoProximo) // mínimo 1 minuto
+      };
+
+      // 4. Estatísticas das últimas 24h
+      const totalAtendidos24h = clientes24h.length;
+      const clientesPorHora = totalAtendidos24h / 24;
+      const barbeirosAtivos24h = barbeirosAtivos.length;
+
+      const ultimas24h = {
+        totalAtendidos: totalAtendidos24h,
+        tempoMedioEspera: tempoMedioEspera,
+        tempoMedioAtendimento: tempoMedioAtendimento,
+        clientesPorHora: Math.round(clientesPorHora * 10) / 10, // 1 casa decimal
+        barbeirosAtivos: barbeirosAtivos24h
+      };
+
+      return {
+        fila,
+        barbeiros: barbeirosStats,
+        tempos,
+        ultimas24h
+      };
+
+    } catch (error) {
+      console.error('Erro ao calcular estatísticas detalhadas:', error);
+      throw error;
+    }
   }
 }
 

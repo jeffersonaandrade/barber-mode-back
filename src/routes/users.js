@@ -2,188 +2,11 @@ const { supabase } = require('../config/database');
 const { checkAdminRole, checkAdminOrGerenteRole, checkBarbeiroRole } = require('../middlewares/rolePermissions');
 
 async function userRoutes(fastify, options) {
-  /**
-   * @swagger
-   * /api/users:
-   *   get:
-   *     tags: [users]
-   *     summary: Listar usuários (apenas admin)
-   *     security:
-   *       - Bearer: []
-   *     responses:
-   *       200:
-   *         description: Lista de usuários
-   *       403:
-   *         description: Acesso negado
-   */
-  fastify.get('/', {
-    preValidation: [fastify.authenticate, checkAdminRole]
-  }, async (request, reply) => {
-    try {
-      const { data: users, error } = await supabase
-        .from('users')
-        .select('id, email, nome, telefone, role, active, created_at, updated_at')
-        .order('created_at', { ascending: false });
+  // Endpoint GET /api/users movido para src/routes/users/perfil.js
+  // para evitar conflito de rotas
 
-      if (error) {
-        throw new Error('Erro ao buscar usuários');
-      }
-
-      return reply.send({
-        success: true,
-        data: users
-      });
-    } catch (error) {
-      return reply.status(400).send({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-
-  /**
-   * @swagger
-   * /api/users/barbeiros:
-   *   get:
-   *     tags: [users]
-   *     summary: Listar barbeiros com filtros (unificado)
-   *     parameters:
-   *       - in: query
-   *         name: barbearia_id
-   *         schema:
-   *           type: integer
-   *       - in: query
-   *         name: status
-   *         schema:
-   *           type: string
-   *           enum: [ativo, inativo, disponivel]
-   *       - in: query
-   *         name: public
-   *         schema:
-   *           type: boolean
-   *           description: Se true, retorna dados limitados para clientes
-   *     responses:
-   *       200:
-   *         description: Lista de barbeiros
-   */
-  fastify.get('/barbeiros', async (request, reply) => {
-    try {
-      const { barbearia_id, status = 'ativo', public: isPublic = false } = request.query;
-
-      // Se é público, não requer autenticação
-      if (!isPublic) {
-        // Verificar autenticação para dados privados
-        try {
-          await request.jwtVerify();
-        } catch (err) {
-          return reply.status(401).send({
-            success: false,
-            error: 'Token inválido ou expirado'
-          });
-        }
-      }
-
-      // Construir query base
-      let query = supabase
-        .from('barbeiros_barbearias')
-        .select(`
-          user_id,
-          especialidade,
-          dias_trabalho,
-          horario_inicio,
-          horario_fim,
-          ativo,
-          disponivel,
-          users(id, nome, email, telefone)
-        `);
-
-      // Aplicar filtros
-      if (barbearia_id) {
-        query = query.eq('barbearia_id', barbearia_id);
-      }
-
-      if (status === 'ativo') {
-        query = query.eq('ativo', true);
-      } else if (status === 'inativo') {
-        query = query.eq('ativo', false);
-      } else if (status === 'disponivel') {
-        query = query.eq('disponivel', true);
-      }
-
-      const { data: barbeiros, error } = await query;
-
-      if (error) {
-        return reply.status(500).send({
-          success: false,
-          error: 'Erro ao buscar barbeiros'
-        });
-      }
-
-      // Formatar dados baseado no tipo de acesso
-      const barbeirosFormatados = barbeiros?.map(bb => {
-        if (isPublic) {
-          // Dados limitados para clientes
-          return {
-            id: bb.user_id,
-            nome: bb.users?.nome || 'Barbeiro',
-            especialidade: bb.especialidade || 'Corte geral',
-            dias_trabalho: bb.dias_trabalho || [],
-            horario_inicio: bb.horario_inicio,
-            horario_fim: bb.horario_fim
-          };
-        } else {
-          // Dados completos para funcionários
-          return {
-            id: bb.user_id,
-            nome: bb.users?.nome || 'Barbeiro',
-            email: bb.users?.email,
-            telefone: bb.users?.telefone,
-            especialidade: bb.especialidade,
-            dias_trabalho: bb.dias_trabalho || [],
-            horario_inicio: bb.horario_inicio,
-            horario_fim: bb.horario_fim,
-            ativo: bb.ativo,
-            disponivel: bb.disponivel
-          };
-        }
-      }) || [];
-
-      // Estrutura de resposta padronizada
-      const response = {
-        success: true,
-        data: {
-          barbeiros: barbeirosFormatados,
-          total: barbeirosFormatados.length,
-          filtros: {
-            barbearia_id,
-            status,
-            public: isPublic
-          }
-        }
-      };
-
-      // Adicionar dados da barbearia se especificada
-      if (barbearia_id) {
-        const { data: barbearia } = await supabase
-          .from('barbearias')
-          .select('id, nome')
-          .eq('id', barbearia_id)
-          .single();
-
-        if (barbearia) {
-          response.data.barbearia = barbearia;
-        }
-      }
-
-      return reply.send(response);
-
-    } catch (error) {
-      return reply.status(500).send({
-        success: false,
-        error: 'Erro interno do servidor'
-      });
-    }
-  });
+  // Endpoint GET /api/users/barbeiros movido para src/routes/users/barbeiros.js
+  // para evitar conflito de rotas
 
   /**
    * @swagger
@@ -561,6 +384,85 @@ async function userRoutes(fastify, options) {
       return reply.status(400).send({
         success: false,
         error: error.message
+      });
+    }
+  });
+
+  /**
+   * @swagger
+   * /api/users/barbeiros/ativos-publico:
+   *   get:
+   *     tags: [users]
+   *     summary: Listar barbeiros ativos de uma barbearia (PÚBLICO)
+   *     parameters:
+   *       - in: query
+   *         name: barbearia_id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *         description: ID da barbearia
+   *     responses:
+   *       200:
+   *         description: Lista de barbeiros ativos
+   */
+  fastify.get('/barbeiros/ativos-publico', async (request, reply) => {
+    try {
+      const { barbearia_id } = request.query;
+
+      if (!barbearia_id) {
+        return reply.status(400).send({
+          success: false,
+          error: 'barbearia_id é obrigatório'
+        });
+      }
+
+      // Buscar barbeiros ativos da barbearia
+      const { data: barbeiros, error } = await supabase
+        .from('barbeiros_barbearias')
+        .select(`
+          user_id,
+          especialidade,
+          dias_trabalho,
+          horario_inicio,
+          horario_fim,
+          ativo,
+          disponivel,
+          users(id, nome)
+        `)
+        .eq('barbearia_id', barbearia_id)
+        .eq('ativo', true)
+        .eq('disponivel', true);
+
+      if (error) {
+        return reply.status(500).send({
+          success: false,
+          error: 'Erro ao buscar barbeiros'
+        });
+      }
+
+      // Formatar dados para clientes (dados limitados)
+      const barbeirosFormatados = barbeiros?.map(bb => ({
+        id: bb.user_id,
+        nome: bb.users?.nome || 'Barbeiro',
+        especialidade: bb.especialidade || 'Corte geral',
+        dias_trabalho: bb.dias_trabalho || [],
+        horario_inicio: bb.horario_inicio,
+        horario_fim: bb.horario_fim
+      })) || [];
+
+      return reply.send({
+        success: true,
+        data: {
+          barbeiros: barbeirosFormatados,
+          total: barbeirosFormatados.length,
+          barbearia_id: parseInt(barbearia_id)
+        }
+      });
+
+    } catch (error) {
+      return reply.status(500).send({
+        success: false,
+        error: 'Erro interno do servidor'
       });
     }
   });
