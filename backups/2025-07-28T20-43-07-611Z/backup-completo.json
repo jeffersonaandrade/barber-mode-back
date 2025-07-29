@@ -1,0 +1,639 @@
+{
+  "timestamp": "2025-07-28T20-43-07-611Z",
+  "tabelas": {
+    "users": [
+      {
+        "id": "3d26d024-d151-46e6-9498-00291b2ab651",
+        "email": "admin@lucasbarbearia.com",
+        "password_hash": "$2b$12$WAEZZipx.J5lu5RJFBMEU.y1AGXLGkuHUAlx0F8sqrIcP33zo.k7.",
+        "role": "admin",
+        "nome": "Administrador",
+        "telefone": "(11) 99999-9999",
+        "created_at": "2025-07-23T23:06:17.140372+00:00",
+        "updated_at": "2025-07-23T23:06:17.140372+00:00",
+        "active": true
+      },
+      {
+        "id": "cf8053c6-3dc9-4bb6-87ff-fcd6db26d270",
+        "email": "teste@barbeiro.com",
+        "password_hash": "$2b$12$r4ntqCjBv4t3qzuFPhEbcuVKtUTcIkyH57CBxUXauVcBN8gi1M78W",
+        "role": "barbeiro",
+        "nome": "Jefferson Andrade",
+        "telefone": "",
+        "created_at": "2025-07-24T14:44:04.70762+00:00",
+        "updated_at": "2025-07-24T14:44:04.70762+00:00",
+        "active": true
+      },
+      {
+        "id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "email": "teste1@barbeiro.com",
+        "password_hash": "$2b$12$5RfEsBISbaDVQyHzsKeSkekbnSVVKAy6S2nET2GNESV9OPgXVCsNu",
+        "role": "barbeiro",
+        "nome": "Teste barbeiro",
+        "telefone": "",
+        "created_at": "2025-07-24T14:48:55.577499+00:00",
+        "updated_at": "2025-07-24T14:48:55.577499+00:00",
+        "active": true
+      },
+      {
+        "id": "5de45247-3787-4834-98aa-f20bb37c7330",
+        "email": "gerente@teste.com",
+        "password_hash": "$2b$12$jX/Fk2iM/Zm48PxkOcdfQOGpoFkt8eOEBRiVwVPhY/kpLZArlxLsO",
+        "role": "gerente",
+        "nome": "Teste 2",
+        "telefone": "",
+        "created_at": "2025-07-24T14:49:28.67774+00:00",
+        "updated_at": "2025-07-24T14:49:28.67774+00:00",
+        "active": true
+      },
+      {
+        "id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "email": "barbeiro@lucasbarbearia.com",
+        "password_hash": "$2b$12$WTU8KH8junULfiOX110V4eq.3SM4s0hzE2TnowFD7xWqF6iX2SC3q",
+        "role": "barbeiro",
+        "nome": "João Barbeiro",
+        "telefone": "(11) 77777-6666",
+        "created_at": "2025-07-24T20:51:35.072348+00:00",
+        "updated_at": "2025-07-24T20:51:35.072348+00:00",
+        "active": true
+      },
+      {
+        "id": "7ff359c1-f368-4b79-8ba8-ff4b21569ed7",
+        "email": "teste@gerente.com",
+        "password_hash": "$2b$12$gFNEI8J0Sk6qV0EHrw/wvOQnk9K9sNyE7PAgUxYwJyAWUmzYajfyu",
+        "role": "gerente",
+        "nome": "teste gerente",
+        "telefone": "",
+        "created_at": "2025-07-27T15:44:13.345175+00:00",
+        "updated_at": "2025-07-27T15:44:13.345175+00:00",
+        "active": true
+      }
+    ],
+    "barbearias": [
+      {
+        "id": 6,
+        "nome": "Lucas Barbearia - Centro",
+        "endereco": "Rua Alexandre Selva, 119",
+        "telefone": "3035647785",
+        "whatsapp": null,
+        "instagram": null,
+        "horario": {
+          "sexta": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "terca": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "quarta": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "quinta": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "sabado": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "08:00"
+          },
+          "domingo": {
+            "aberto": false
+          },
+          "segunda": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          }
+        },
+        "configuracoes": {
+          "max_clientes_fila": 30,
+          "permitir_agendamento": true,
+          "mostrar_tempo_estimado": true,
+          "tempo_medio_atendimento": 40
+        },
+        "servicos": [
+          {
+            "nome": "Corte Masculino Premium",
+            "preco": 35,
+            "duracao": 40,
+            "descricao": "Corte com técnicas avançadas"
+          },
+          {
+            "nome": "Barba Completa",
+            "preco": 20,
+            "duracao": 25,
+            "descricao": "Aparar e desenhar"
+          }
+        ],
+        "ativo": true,
+        "created_at": "2025-07-24T14:02:15.311766+00:00",
+        "updated_at": "2025-07-24T14:02:15.311766+00:00",
+        "gerente_id": null
+      },
+      {
+        "id": 7,
+        "nome": "Lucas Barbearia - Zona Sul",
+        "endereco": "Rua Alexandre Selva, 119",
+        "telefone": "8163598525",
+        "whatsapp": null,
+        "instagram": null,
+        "horario": {
+          "sexta": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "terca": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "quarta": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "quinta": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          },
+          "sabado": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "08:00"
+          },
+          "domingo": {
+            "aberto": false
+          },
+          "segunda": {
+            "fim": "19:00",
+            "aberto": true,
+            "inicio": "09:00"
+          }
+        },
+        "configuracoes": {
+          "max_clientes_fila": 30,
+          "permitir_agendamento": true,
+          "mostrar_tempo_estimado": true,
+          "tempo_medio_atendimento": 40
+        },
+        "servicos": [
+          {
+            "nome": "Corte Masculino Premium",
+            "preco": 35,
+            "duracao": 40,
+            "descricao": "Corte com técnicas avançadas"
+          },
+          {
+            "nome": "Barba Completa",
+            "preco": 20,
+            "duracao": 25,
+            "descricao": "Aparar e desenhar"
+          }
+        ],
+        "ativo": true,
+        "created_at": "2025-07-24T14:07:54.208968+00:00",
+        "updated_at": "2025-07-24T14:07:54.208968+00:00",
+        "gerente_id": null
+      }
+    ],
+    "barbeiros_barbearias": [
+      {
+        "id": "6dfcfd75-0127-4573-a60b-a0ce02c86db4",
+        "user_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "barbearia_id": 6,
+        "especialidade": null,
+        "dias_trabalho": [],
+        "horario_inicio": "08:00:00",
+        "horario_fim": "18:00:00",
+        "disponivel": true,
+        "ativo": false,
+        "created_at": "2025-07-24T15:59:36.201496+00:00",
+        "updated_at": "2025-07-24T16:16:21.003+00:00"
+      },
+      {
+        "id": "99ec1428-b180-471f-8cf9-2c5d64ae05b1",
+        "user_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "barbearia_id": 7,
+        "especialidade": null,
+        "dias_trabalho": [],
+        "horario_inicio": "08:00:00",
+        "horario_fim": "18:00:00",
+        "disponivel": true,
+        "ativo": false,
+        "created_at": "2025-07-24T16:16:28.350562+00:00",
+        "updated_at": "2025-07-24T16:33:13.428+00:00"
+      },
+      {
+        "id": "8a361545-1085-4f2a-b2a4-4109148a04e7",
+        "user_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "barbearia_id": 6,
+        "especialidade": null,
+        "dias_trabalho": [
+          "segunda",
+          "terca",
+          "quarta",
+          "quinta",
+          "sexta",
+          "sabado"
+        ],
+        "horario_inicio": "08:00:00",
+        "horario_fim": "18:00:00",
+        "disponivel": true,
+        "ativo": false,
+        "created_at": "2025-07-25T21:17:35.883+00:00",
+        "updated_at": "2025-07-25T21:59:07.593+00:00"
+      },
+      {
+        "id": "eae6bfe8-9822-4117-a57d-4aa7f64801dd",
+        "user_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "barbearia_id": 7,
+        "especialidade": "Corte masculino",
+        "dias_trabalho": [
+          "segunda",
+          "terca",
+          "quarta",
+          "quinta",
+          "sexta"
+        ],
+        "horario_inicio": "08:00:00",
+        "horario_fim": "18:00:00",
+        "disponivel": true,
+        "ativo": true,
+        "created_at": "2025-07-24T22:32:26.625812+00:00",
+        "updated_at": "2025-07-25T21:59:07.992+00:00"
+      },
+      {
+        "id": "c2aa3bc5-186d-433a-868a-6fa3e0f1fe8f",
+        "user_id": "cf8053c6-3dc9-4bb6-87ff-fcd6db26d270",
+        "barbearia_id": 7,
+        "especialidade": "Corte masculino",
+        "dias_trabalho": [
+          "segunda",
+          "terca",
+          "quarta",
+          "quinta",
+          "sexta"
+        ],
+        "horario_inicio": "08:00:00",
+        "horario_fim": "18:00:00",
+        "disponivel": true,
+        "ativo": false,
+        "created_at": "2025-07-24T19:35:23.491002+00:00",
+        "updated_at": "2025-07-26T16:01:22.793+00:00"
+      },
+      {
+        "id": "ae8647fc-9c3b-4c52-9327-84d609c76514",
+        "user_id": "cf8053c6-3dc9-4bb6-87ff-fcd6db26d270",
+        "barbearia_id": 6,
+        "especialidade": null,
+        "dias_trabalho": [
+          "segunda",
+          "terca",
+          "quarta",
+          "quinta",
+          "sexta",
+          "sabado"
+        ],
+        "horario_inicio": "08:00:00",
+        "horario_fim": "18:00:00",
+        "disponivel": true,
+        "ativo": true,
+        "created_at": "2025-07-26T16:01:23.344+00:00",
+        "updated_at": "2025-07-26T16:01:23.478+00:00"
+      }
+    ],
+    "clientes": [
+      {
+        "id": "ebdcefd2-6330-4152-91be-5e98fb1b7ecb",
+        "nome": "Lucas Oliveira",
+        "telefone": "(41) 66666-6666",
+        "token": "mdhpd64j-3t42vk935re",
+        "barbearia_id": 7,
+        "barbeiro_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "status": "removido",
+        "posicao": 1,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T18:05:10.217962+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T18:05:10.217962+00:00",
+        "updated_at": "2025-07-26T06:20:42.468+00:00"
+      },
+      {
+        "id": "abbb99fc-e7d1-4573-8f30-1f5c51914367",
+        "nome": "João Silva",
+        "telefone": "(51) 55555-5555",
+        "token": "74boqkq3wam12ogkkrogtb",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "removido",
+        "posicao": 11,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T22:44:29.04583+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T22:44:29.04583+00:00",
+        "updated_at": "2025-07-26T06:00:21.982+00:00"
+      },
+      {
+        "id": "d0feaa2c-cf8a-4c3d-9567-27fd125de32d",
+        "nome": "João Silva",
+        "telefone": "(21) 88888-8888",
+        "token": "cy9j18mpwrc53av1bxnlh",
+        "barbearia_id": 7,
+        "barbeiro_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "status": "removido",
+        "posicao": 12,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T22:44:31.919356+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T22:44:31.919356+00:00",
+        "updated_at": "2025-07-26T06:02:07.497+00:00"
+      },
+      {
+        "id": "e593eb03-8161-4dfc-a7e6-3c1d50794c18",
+        "nome": "Lucas Oliveira",
+        "telefone": "(21) 88888-8888",
+        "token": "fokjo15jemaw19m3ew9z6h",
+        "barbearia_id": 7,
+        "barbeiro_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "status": "removido",
+        "posicao": 13,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T22:44:34.229978+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T22:44:34.229978+00:00",
+        "updated_at": "2025-07-26T06:03:46.488+00:00"
+      },
+      {
+        "id": "aeb031a1-9e8a-48e8-b062-ab8d72524575",
+        "nome": "Jefferson Andrade",
+        "telefone": "(81) 99256-8647",
+        "token": "kawu0pzj59dgtmo6kvvtwp",
+        "barbearia_id": 7,
+        "barbeiro_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "status": "removido",
+        "posicao": 16,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T23:10:15.389668+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T23:10:15.389668+00:00",
+        "updated_at": "2025-07-26T06:04:28.4+00:00"
+      },
+      {
+        "id": "b9c5e379-d1af-450e-9702-ea48485e2c6c",
+        "nome": "Jefferson Andrade",
+        "telefone": "(81) 99256-8647",
+        "token": "rdw61ux1jibg5utzyj4b7",
+        "barbearia_id": 7,
+        "barbeiro_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "status": "aguardando",
+        "posicao": 1,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T23:08:08.564748+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T23:08:08.564748+00:00",
+        "updated_at": "2025-07-28T20:31:34.983+00:00"
+      },
+      {
+        "id": "0429b409-0faf-44de-89f3-3832fd135ae8",
+        "nome": "Miguel Costa",
+        "telefone": "(11) 99999-9999",
+        "token": "h3gw6agotse31i0xg9j0q7",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 2,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-25T22:13:53.652481+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-25T22:13:53.572+00:00",
+        "updated_at": "2025-07-28T20:31:35.091+00:00"
+      },
+      {
+        "id": "042a93bb-c6b1-48a7-9466-b57236dcbc83",
+        "nome": "Miguel Costa",
+        "telefone": "(11) 99999-9999",
+        "token": "2m5iqm2y5gl83qp2hgpea3",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 3,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-25T22:21:49.534187+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-25T22:21:49.489+00:00",
+        "updated_at": "2025-07-28T20:31:35.193+00:00"
+      },
+      {
+        "id": "308c186f-b791-4733-9af0-cf376f0784bf",
+        "nome": "Priscila Vanessa",
+        "telefone": "(11) 99999-9999",
+        "token": "e2mhfa2qq08y4jwn3zrxkb",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 4,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T02:02:09.175307+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T02:02:09.049+00:00",
+        "updated_at": "2025-07-28T20:31:35.296+00:00"
+      },
+      {
+        "id": "fdd1cb18-19fb-4ccc-a955-6a9b11cbf266",
+        "nome": "Lucas Oliveira",
+        "telefone": "(31) 77777-7777",
+        "token": "fq4gkavd8w67vb0cqz2mmo",
+        "barbearia_id": 7,
+        "barbeiro_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "status": "removido",
+        "posicao": 1,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T22:44:22.384531+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T22:44:22.384531+00:00",
+        "updated_at": "2025-07-26T06:20:55.837+00:00"
+      },
+      {
+        "id": "01a0b9e9-e2b6-4800-8f33-3c386aa86fa7",
+        "nome": "João Silva",
+        "telefone": "(11) 99999-9999",
+        "token": "sr3f1rbzd4waci0dh0nmh",
+        "barbearia_id": 7,
+        "barbeiro_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "status": "aguardando",
+        "posicao": 5,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T05:26:56.263591+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T05:26:56.387+00:00",
+        "updated_at": "2025-07-28T20:31:35.404+00:00"
+      },
+      {
+        "id": "f4665082-e46c-4695-9082-b8431c3d8c5a",
+        "nome": "Jefferson Andrade",
+        "telefone": "(81) 99256-8647",
+        "token": "9z8s4ykvuyafrrl6xqiqe",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 6,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:06:28.678921+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:06:28.788+00:00",
+        "updated_at": "2025-07-28T20:31:35.52+00:00"
+      },
+      {
+        "id": "7e74086b-ee4c-4fb5-8c69-36ac9a678aa6",
+        "nome": "Mauricio Hermann",
+        "telefone": "(81) 99256-8647",
+        "token": "v67cqpemlao014gktsxfnog",
+        "barbearia_id": 7,
+        "barbeiro_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "status": "aguardando",
+        "posicao": 7,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:08:53.167877+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:08:53.273+00:00",
+        "updated_at": "2025-07-28T20:31:35.624+00:00"
+      },
+      {
+        "id": "06a62026-43ba-4bfb-9135-41090c3a79bf",
+        "nome": "Jefferson Andrade",
+        "telefone": "(81) 99256-8647",
+        "token": "o7cdb8lpvjtum3296s7czs",
+        "barbearia_id": 7,
+        "barbeiro_id": "a9e876ae-990a-4c3e-99b6-9972d9d78285",
+        "status": "removido",
+        "posicao": 2,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T23:06:50.157965+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T23:06:50.157965+00:00",
+        "updated_at": "2025-07-26T06:21:05.756+00:00"
+      },
+      {
+        "id": "e31912d9-8d09-4bbf-b211-9f05d09104b4",
+        "nome": "Barbearia Centro",
+        "telefone": "(81) 99256-8647",
+        "token": "rlusn7s1ch8xg9bu2vdp2",
+        "barbearia_id": 7,
+        "barbeiro_id": "8d96c577-14a1-48ac-9b9a-b75947c5e1fd",
+        "status": "aguardando",
+        "posicao": 8,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:21:15.461669+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:21:15.552+00:00",
+        "updated_at": "2025-07-28T20:31:35.737+00:00"
+      },
+      {
+        "id": "a663bbca-beff-4800-bc24-4ee2af0aa948",
+        "nome": "Bebezord",
+        "telefone": "(11) 99999-9999",
+        "token": "qyjtzyrynuk3hhioonc7cc",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 9,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:25:54.133985+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:25:54.234+00:00",
+        "updated_at": "2025-07-28T20:31:35.85+00:00"
+      },
+      {
+        "id": "798d0760-b8e3-4fd8-bbaa-78d7fa9b4992",
+        "nome": "Teste barbeiro",
+        "telefone": "(81) 99256-8647",
+        "token": "zo7dfgr49mcetzv2en12bp",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 10,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:28:24.027893+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:28:24.127+00:00",
+        "updated_at": "2025-07-28T20:31:35.957+00:00"
+      },
+      {
+        "id": "55e78338-db52-41fd-9a63-69c28df2eb4c",
+        "nome": "Teste barbeiro",
+        "telefone": "(81) 99256-8647",
+        "token": "4c2tg9my04nhpudk8xtzao",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 11,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:29:05.391991+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:29:05.488+00:00",
+        "updated_at": "2025-07-28T20:31:36.061+00:00"
+      },
+      {
+        "id": "e2d60994-4c56-4497-9ddc-ed2b5f46fe12",
+        "nome": "Jefferson Andrade",
+        "telefone": "(81) 99256-8647",
+        "token": "6wc5gs8j25xz0a0boyeul",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "aguardando",
+        "posicao": 12,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-26T08:31:24.152615+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-26T08:31:24.247+00:00",
+        "updated_at": "2025-07-28T20:31:36.205+00:00"
+      },
+      {
+        "id": "3e7a3bf8-1244-4a28-b148-c1b4b917b1e8",
+        "nome": "Pedro Santos",
+        "telefone": "(31) 77777-7777",
+        "token": "digfiebu4kn427ns5gildp",
+        "barbearia_id": 7,
+        "barbeiro_id": null,
+        "status": "removido",
+        "posicao": 1,
+        "tempo_estimado": null,
+        "data_entrada": "2025-07-24T22:44:26.339823+00:00",
+        "data_atendimento": null,
+        "data_finalizacao": null,
+        "created_at": "2025-07-24T22:44:26.339823+00:00",
+        "updated_at": "2025-07-26T06:21:09.571+00:00"
+      }
+    ],
+    "avaliacoes": [],
+    "historico_atendimentos": []
+  }
+}

@@ -103,6 +103,8 @@ async function verificarStatus(fastify, options) {
     }
   });
 
+
+
   // Novo endpoint compatível: /api/fila/:barbeariaId/status/:token
   fastify.get('/fila/:barbeariaId/status/:token', {
     schema: {

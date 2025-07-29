@@ -26,9 +26,42 @@ Sistema de gerenciamento de filas para barbearias com múltiplas unidades, desen
 
 ## 📋 Pré-requisitos
 
-- Node.js 16+
+- Node.js 18+
 - Conta no Supabase
 - npm ou yarn
+
+## 🔒 Segurança
+
+O sistema inclui verificações automáticas de segurança:
+
+```bash
+# Verificação completa de segurança
+npm run security:check
+
+# Verificação rápida
+npm run security:quick
+
+# Apenas lock-file lint
+npm run security:lockfile
+
+# Verificar vulnerabilidades
+npm run security:audit
+```
+
+**Nota**: As verificações de segurança são executadas automaticamente antes de `npm install` e `npm start`.
+
+### **🛡️ Node.js Permission Model**
+Para máxima segurança, use o Permission Model (requer Node.js 18.6.0+):
+
+```bash
+# Iniciar com permissões restritas
+npm run start:secure
+
+# Desenvolvimento com permissões restritas
+npm run dev:secure
+```
+
+Consulte `SECURITY.md` e `NODE_PERMISSION_MODEL.md` para mais detalhes sobre as medidas de segurança implementadas.
 
 ## 🔧 Instalação
 

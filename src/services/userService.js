@@ -389,7 +389,7 @@ class UserService {
    * @returns {Promise<Object>} Usuário atualizado
    */
   async atualizarUsuario(id, dados) {
-    const { nome, email, role, ativo } = dados;
+    const { nome, email, role, ativo, password } = dados;
     
     // Verificar se o usuário existe
     const { data: userExistente, error: userError } = await this.supabase
@@ -408,6 +408,15 @@ class UserService {
     if (email !== undefined) dadosAtualizacao.email = email;
     if (role !== undefined) dadosAtualizacao.role = role;
     if (ativo !== undefined) dadosAtualizacao.ativo = ativo;
+    
+    // Se uma nova senha foi fornecida, fazer hash dela
+    if (password !== undefined && password.trim() !== '') {
+      const bcrypt = require('bcrypt');
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      dadosAtualizacao.password_hash = passwordHash;
+      console.log(`🔐 [USER] Senha atualizada para usuário ${userExistente.email}`);
+    }
     
     dadosAtualizacao.updated_at = new Date().toISOString();
     
@@ -429,7 +438,8 @@ class UserService {
       email: userAtualizado.email,
       role: userAtualizado.role,
       ativo: userAtualizado.ativo,
-      updated_at: userAtualizado.updated_at
+      updated_at: userAtualizado.updated_at,
+      password_updated: password !== undefined && password.trim() !== ''
     };
   }
 
@@ -688,6 +698,142 @@ class UserService {
       nome: userExistente.nome,
       email: userExistente.email,
       role: userExistente.role
+    };
+  }
+
+  /**
+   * Atribuir gerente a uma barbearia (ADMIN)
+   * @param {Object} dados - Dados para atribuição
+   * @param {string} dados.user_id - ID do usuário gerente
+   * @param {number} dados.barbearia_id - ID da barbearia
+   * @returns {Promise<Object>} Resultado da operação
+   */
+  async atribuirGerente(dados) {
+    const { user_id, barbearia_id } = dados;
+
+    // Verificar se o usuário existe e é gerente
+    const { data: user, error: userError } = await this.supabase
+      .from('users')
+      .select('id, nome, email, role, active')
+      .eq('id', user_id)
+      .single();
+      
+    if (userError || !user) {
+      throw new Error('Usuário não encontrado');
+    }
+    
+    if (user.role !== 'gerente') {
+      throw new Error('Usuário não é gerente');
+    }
+    
+    if (!user.active) {
+      throw new Error('Usuário gerente está inativo');
+    }
+
+    // Verificar se a barbearia existe e está ativa
+    const { data: barbearia, error: barbeariaError } = await this.supabase
+      .from('barbearias')
+      .select('id, nome, ativo, gerente_id')
+      .eq('id', barbearia_id)
+      .single();
+      
+    if (barbeariaError || !barbearia) {
+      throw new Error('Barbearia não encontrada');
+    }
+    
+    if (!barbearia.ativo) {
+      throw new Error('Barbearia está inativa');
+    }
+
+    // Verificar se já tem gerente
+    if (barbearia.gerente_id) {
+      if (barbearia.gerente_id === user_id) {
+        throw new Error('Este usuário já é gerente desta barbearia');
+      }
+      
+      // Buscar dados do gerente atual
+      const { data: gerenteAtual } = await this.supabase
+        .from('users')
+        .select('id, nome, email')
+        .eq('id', barbearia.gerente_id)
+        .single();
+        
+      throw new Error(`Barbearia já possui gerente: ${gerenteAtual?.nome || 'N/A'}`);
+    }
+
+    // Atribuir gerente à barbearia
+    const { data: barbeariaAtualizada, error: updateError } = await this.supabase
+      .from('barbearias')
+      .update({ 
+        gerente_id: user_id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', barbearia_id)
+      .select('id, nome, gerente_id')
+      .single();
+      
+    if (updateError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    return {
+      gerente: {
+        id: user.id,
+        nome: user.nome,
+        email: user.email
+      },
+      barbearia: {
+        id: barbeariaAtualizada.id,
+        nome: barbeariaAtualizada.nome
+      }
+    };
+  }
+
+  /**
+   * Remover gerente de uma barbearia (ADMIN)
+   * @param {Object} dados - Dados para remoção
+   * @param {number} dados.barbearia_id - ID da barbearia
+   * @returns {Promise<Object>} Resultado da operação
+   */
+  async removerGerente(dados) {
+    const { barbearia_id } = dados;
+
+    // Verificar se a barbearia existe
+    const { data: barbearia, error: barbeariaError } = await this.supabase
+      .from('barbearias')
+      .select('id, nome, ativo, gerente_id')
+      .eq('id', barbearia_id)
+      .single();
+      
+    if (barbeariaError || !barbearia) {
+      throw new Error('Barbearia não encontrada');
+    }
+
+    // Verificar se tem gerente
+    if (!barbearia.gerente_id) {
+      throw new Error('Barbearia não tem gerente');
+    }
+
+    // Remover gerente da barbearia
+    const { data: barbeariaAtualizada, error: updateError } = await this.supabase
+      .from('barbearias')
+      .update({ 
+        gerente_id: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', barbearia_id)
+      .select('id, nome, gerente_id')
+      .single();
+      
+    if (updateError) {
+      throw new Error('Erro interno do servidor');
+    }
+
+    return {
+      barbearia: {
+        id: barbeariaAtualizada.id,
+        nome: barbeariaAtualizada.nome
+      }
     };
   }
 

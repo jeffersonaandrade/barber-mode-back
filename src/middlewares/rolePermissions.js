@@ -256,6 +256,67 @@ async function checkHistoricoAccess(request, reply) {
 }
 
 /**
+ * Middleware para verificar se o usuário pode gerenciar a fila (barbeiro ou gerente)
+ * @param {import('fastify').FastifyRequest & { user: User }} request
+ * @param {import('fastify').FastifyReply} reply
+ */
+async function checkFilaManagementAccess(request, reply) {
+  const { barbearia_id } = request.params;
+  const userId = request.user?.id;
+  const userRole = request.user?.role;
+
+  try {
+    // Admin pode gerenciar qualquer fila
+    if (userRole === 'admin') {
+      return;
+    }
+
+    // Verificar se é barbeiro ou gerente
+    if (!hasRole(request.user, ['barbeiro', 'gerente'])) {
+      return reply.status(403).send(
+        createAccessError('ACCESS_DENIED', 'Apenas barbeiros e gerentes podem gerenciar a fila')
+      );
+    }
+
+    // Gerente só pode gerenciar fila de sua própria barbearia
+    if (userRole === 'gerente') {
+      const isGerente = await isGerenteDaBarbearia(userId, barbearia_id);
+      
+      if (!isGerente) {
+        return reply.status(403).send(
+          createAccessError('BARBEARIA_ACCESS_DENIED', 'Você só pode gerenciar a fila de sua própria barbearia')
+        );
+      }
+    }
+
+    // Barbeiro só pode gerenciar fila de barbearias onde trabalha
+    if (userRole === 'barbeiro') {
+      const barbeiroInfo = await isBarbeiroDaBarbearia(userId, barbearia_id);
+      
+      if (!barbeiroInfo) {
+        return reply.status(403).send(
+          createAccessError('BARBEARIA_ACCESS_DENIED', 'Você não trabalha nesta barbearia')
+        );
+      }
+
+      if (!barbeiroInfo.ativo) {
+        return reply.status(403).send(
+          createAccessError('BARBEIRO_INACTIVE', 'Você não está ativo nesta barbearia')
+        );
+      }
+
+      // Adicionar informações do barbeiro ao request
+      request.barbeiroInfo = barbeiroInfo;
+    }
+  } catch (error) {
+    console.error('Erro em checkFilaManagementAccess:', error);
+    return reply.status(500).send(
+      createAccessError('INTERNAL_ERROR', 'Erro ao verificar acesso para gerenciamento da fila')
+    );
+  }
+}
+
+/**
  * Middleware genérico para verificar múltiplas roles
  * @param {string|string[]} allowedRoles - Roles permitidos
  * @returns {Function} Middleware function
@@ -336,7 +397,8 @@ module.exports = {
   checkAdminOrGerenteRole,
   checkGerenteBarbeariaAccess,
   checkBarbeiroBarbeariaAccess,
-  checkHistoricoAccess, // Novo middleware
+  checkHistoricoAccess,
+  checkFilaManagementAccess, // Novo middleware para gerenciamento de fila
   
   // Middlewares genéricos
   requireRoles,

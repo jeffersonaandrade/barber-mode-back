@@ -151,6 +151,7 @@ async function visualizarFila(fastify, options) {
               type: 'object',
               properties: {
                 barbearia: { type: 'object' },
+                clientes: { type: 'array' },
                 estatisticas: { type: 'object' }
               }
             }
@@ -163,15 +164,15 @@ async function visualizarFila(fastify, options) {
     try {
       const { barbearia_id } = request.params;
       
-      // Usar serviço para obter estatísticas (verificando se está ativa)
-      const resultado = await filaService.obterEstatisticasFila(barbearia_id, true);
+      // Usar serviço para obter fila pública com dados limitados
+      const resultado = await filaService.obterFilaPublica(barbearia_id, true);
       
       return reply.status(200).send({
         success: true,
         data: resultado
       });
     } catch (error) {
-      console.error('Erro ao obter estatísticas públicas:', error);
+      console.error('Erro ao obter fila pública:', error);
       
       if (error.message.includes('Barbearia não encontrada')) {
         return reply.status(404).send({ 

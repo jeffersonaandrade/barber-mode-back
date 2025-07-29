@@ -1,0 +1,10 @@
+Backup do Banco de Dados - Lucas Barbearia
+Data/Hora: 2025-07-28T20-43-07-611Z
+==========================================
+
+users: 6 registros
+barbearias: 2 registros
+barbeiros_barbearias: 6 registros
+clientes: 20 registros
+avaliacoes: 0 registros
+historico_atendimentos: 0 registros

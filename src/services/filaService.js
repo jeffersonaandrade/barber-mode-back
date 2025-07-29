@@ -7,8 +7,32 @@ const QRCode = require('qrcode');
  * separando as operações de banco de dados das rotas.
  */
 class FilaService {
-  constructor(supabase) {
+  constructor(supabase, fastify = null) {
     this.supabase = supabase;
+    this.fastify = fastify;
+  }
+
+  /**
+   * Gerar token único para cliente
+   */
+  gerarTokenUnico() {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
+  /**
+   * Gerar token JWT para cliente (4 horas)
+   */
+  gerarTokenJWTCliente(clienteData) {
+    if (!this.fastify) {
+      throw new Error('Fastify instance não fornecida para gerar JWT');
+    }
+    
+    return this.fastify.generateClienteToken({
+      id: clienteData.id,
+      token: clienteData.token,
+      barbearia_id: clienteData.barbearia_id,
+      tipo: 'cliente'
+    });
   }
 
   /**
@@ -115,12 +139,7 @@ class FilaService {
     }
     
     // Reordenar fila antes de obter os dados
-    console.log(`[FILA] Reordenando fila antes de obter dados da barbearia ${barbearia_id}`);
     const reordenacaoSucesso = await this.reordenarFila(barbearia_id);
-    
-    if (!reordenacaoSucesso) {
-      console.warn(`[FILA] Falha na reordenação da fila ${barbearia_id}, mas continuando...`);
-    }
     
     // Obter clientes na fila (após reordenação)
     const { data: clientes, error: clientesError } = await this.supabase
@@ -150,15 +169,17 @@ class FilaService {
     const barbeirosAtivosCount = await this.obterBarbeirosAtivosCount(barbearia_id);
     estatisticas.barbeiros_ativos = barbeirosAtivosCount;
     
-    // Filtrar apenas clientes aguardando para o array principal
-    const clientesAguardando = clientes.filter(cliente => cliente.status === 'aguardando');
+    // Filtrar clientes ativos (aguardando, próximo, atendendo) para o array principal
+    const clientesAtivos = clientes.filter(cliente => 
+      ['aguardando', 'proximo', 'atendendo'].includes(cliente.status)
+    );
     
     return {
       barbearia: {
         id: barbearia.id,
         nome: barbearia.nome
       },
-      clientes: clientesAguardando.map(cliente => ({
+      clientes: clientesAtivos.map(cliente => ({
         id: cliente.id,
         nome: cliente.nome,
         telefone: cliente.telefone,
@@ -332,7 +353,7 @@ class FilaService {
       }
     }
     
-    return {
+    const resultado = {
       cliente: {
         id: cliente.id,
         nome: cliente.nome,
@@ -348,17 +369,11 @@ class FilaService {
       posicao_atual: posicaoAtual,
       tempo_estimado: tempoEstimado
     };
+    
+    return resultado;
   }
 
   // Métodos auxiliares privados
-
-  /**
-   * Gerar token único para o cliente
-   * @returns {string} Token único
-   */
-  gerarTokenUnico() {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  }
 
   /**
    * Calcular próxima posição na fila
@@ -389,8 +404,6 @@ class FilaService {
    */
   async reordenarFila(barbearia_id) {
     try {
-      console.log(`[REORDENAÇÃO] Iniciando reordenação da fila ${barbearia_id}`);
-      
       // Buscar todos os clientes ativos na fila (APENAS aguardando e próximo)
       const { data: clientesAtivos, error: clientesError } = await this.supabase
         .from('clientes')
@@ -400,14 +413,10 @@ class FilaService {
         .order('created_at', { ascending: true }); // Ordenar por data de criação
 
       if (clientesError) {
-        console.error('[REORDENAÇÃO] Erro ao buscar clientes para reordenação:', clientesError);
         return false;
       }
 
-      console.log(`[REORDENAÇÃO] Encontrados ${clientesAtivos?.length || 0} clientes ativos`);
-
       if (!clientesAtivos || clientesAtivos.length === 0) {
-        console.log('[REORDENAÇÃO] Nenhum cliente ativo para reordenar');
         return true; // Nenhum cliente para reordenar
       }
 
@@ -418,8 +427,6 @@ class FilaService {
         posicao_atual: cliente.posicao,
         nova_posicao: index + 1
       }));
-
-      console.log('[REORDENAÇÃO] Posições a serem atualizadas:', updates);
 
       // Atualizar posições em lote
       let sucessos = 0;
@@ -435,19 +442,14 @@ class FilaService {
           .eq('id', update.id);
 
         if (updateError) {
-          console.error(`[REORDENAÇÃO] Erro ao atualizar posição do cliente ${update.id} (${update.nome}):`, updateError);
           erros++;
         } else {
-          console.log(`[REORDENAÇÃO] Cliente ${update.nome}: posição ${update.posicao_atual} → ${update.nova_posicao}`);
           sucessos++;
         }
       }
-
-      console.log(`[REORDENAÇÃO] Reordenação concluída para barbearia ${barbearia_id}. Sucessos: ${sucessos}, Erros: ${erros}`);
       
       return erros === 0; // Retorna true apenas se não houve erros
     } catch (error) {
-      console.error('[REORDENAÇÃO] Erro na reordenação da fila:', error);
       return false;
     }
   }
@@ -490,11 +492,13 @@ class FilaService {
     const finalizados = clientes.filter(c => c.status === 'finalizado').length;
     const removidos = clientes.filter(c => c.status === 'removido').length;
     
-    // Calcular tempo estimado (15 minutos por cliente)
+    // Calcular tempo estimado (15 minutos por cliente AGUARDANDO apenas)
     const tempoEstimado = aguardando * 15;
     
     return {
       total_clientes: totalClientes,
+      // Contagem da fila: apenas clientes aguardando
+      total_na_fila: aguardando,
       aguardando,
       proximo,
       atendendo,
@@ -660,6 +664,70 @@ class FilaService {
       console.error('Erro ao calcular estatísticas detalhadas:', error);
       throw error;
     }
+  }
+
+  /**
+   * Obter fila pública com dados limitados dos clientes
+   * @param {number} barbearia_id - ID da barbearia
+   * @param {boolean} verificarAtivo - Se deve verificar se a barbearia está ativa
+   * @returns {Promise<Object>} Fila pública com dados limitados
+   */
+  async obterFilaPublica(barbearia_id, verificarAtivo = false) {
+    // Verificar se a barbearia existe
+    let query = this.supabase
+      .from('barbearias')
+      .select('id, nome, ativo')
+      .eq('id', barbearia_id);
+    
+    if (verificarAtivo) {
+      query = query.eq('ativo', true);
+    }
+    
+    const { data: barbearia, error: barbeariaError } = await query.single();
+    if (barbeariaError || !barbearia) {
+      throw new Error(verificarAtivo ? 'Barbearia não encontrada ou inativa' : 'Barbearia não encontrada');
+    }
+    
+    // Obter clientes na fila com dados limitados
+    const { data: clientes, error: clientesError } = await this.supabase
+      .from('clientes')
+      .select('nome, status, posicao, created_at')
+      .eq('barbearia_id', barbearia_id)
+      .in('status', ['aguardando', 'proximo', 'atendendo'])
+      .order('posicao', { ascending: true });
+      
+    if (clientesError) {
+      throw new Error('Erro interno do servidor');
+    }
+    
+    // Processar dados dos clientes (limitados para privacidade)
+    const clientesPublicos = clientes.map(cliente => {
+      // Pegar apenas o primeiro nome
+      const primeiroNome = cliente.nome.split(' ')[0];
+      
+      return {
+        nome: primeiroNome,
+        status: cliente.status,
+        posicao: cliente.posicao,
+        tempo_na_fila: Math.round((new Date() - new Date(cliente.created_at)) / (1000 * 60)) // minutos
+      };
+    });
+    
+    // Calcular estatísticas
+    const estatisticas = this.calcularEstatisticas(clientes);
+    
+    // Obter número de barbeiros ativos
+    const barbeirosAtivosCount = await this.obterBarbeirosAtivosCount(barbearia_id);
+    estatisticas.barbeiros_ativos = barbeirosAtivosCount;
+    
+    return {
+      barbearia: {
+        id: barbearia.id,
+        nome: barbearia.nome
+      },
+      clientes: clientesPublicos,
+      estatisticas
+    };
   }
 }
 

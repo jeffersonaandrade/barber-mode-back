@@ -8,8 +8,13 @@ try {
   const dbConfig = require('../config/database');
   supabase = dbConfig.supabase;
   supabaseAdmin = dbConfig.supabaseAdmin;
+  console.log('✅ Supabase configurado com sucesso');
+  console.log('  - URL:', process.env.SUPABASE_URL ? 'Configurada' : 'Não configurada');
+  console.log('  - ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'Configurada' : 'Não configurada');
+  console.log('  - SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Configurada' : 'Não configurada');
 } catch (error) {
   console.log('⚠️ Supabase não configurado, usando dados simulados');
+  console.log('  - Erro:', error.message);
 }
 
 class AuthService {
@@ -21,7 +26,7 @@ class AuthService {
       {
         id: 'admin-001',
         email: 'admin@lucasbarbearia.com',
-        password_hash: '$2b$12$IPjUL7HPYFXwsvKsZ1PtbuAq5ldfspojv/RAfXeHrQO9dI.iwJMAe', // senha: admin123
+        password_hash: '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uO.G', // senha: admin123
         nome: 'Administrador',
         telefone: '(11) 99999-9999',
         role: 'admin',
@@ -58,7 +63,7 @@ class AuthService {
    * Autentica um usuário
    * @param {string} email - Email do usuário
    * @param {string} password - Senha do usuário
-   * @returns {Object} - Dados do usuário e token
+   * @returns {Object} - Dados do usuário e token para cookies
    */
   async login(email, password) {
     try {
@@ -87,6 +92,7 @@ class AuthService {
 
       // Verificar senha
       const senhaValida = await bcrypt.compare(password, user.password_hash);
+      
       if (!senhaValida) {
         throw new Error('Email ou senha inválidos');
       }
@@ -98,11 +104,12 @@ class AuthService {
       const { password_hash, ...userData } = user;
 
       return {
+        token,
         user: userData,
-        token
+        expiresIn: '12h'
       };
     } catch (error) {
-      throw new Error('Erro na autenticação: ' + error.message);
+      throw new Error(error.message);
     }
   }
 
@@ -113,7 +120,12 @@ class AuthService {
    */
   async register(userData) {
     try {
-      const { email, password, nome, telefone, role } = userData;
+      const { email, password, nome, telefone, role, barbearia_id } = userData;
+
+      // Validar se barbearia_id é fornecido para gerentes
+      if (role === 'gerente' && !barbearia_id) {
+        throw new Error('barbearia_id é obrigatório para gerentes');
+      }
 
       if (supabase) {
         // Usar Supabase se configurado
@@ -151,8 +163,55 @@ class AuthService {
           throw new Error('Erro ao criar usuário: ' + error.message);
         }
 
+        // Se for gerente e barbearia_id foi fornecido, atribuir à barbearia
+        let barbeariaInfo = null;
+        if (role === 'gerente' && barbearia_id) {
+          // Verificar se a barbearia existe e está ativa
+          const { data: barbearia, error: barbeariaError } = await clientToUse
+            .from('barbearias')
+            .select('id, nome, ativo, gerente_id')
+            .eq('id', barbearia_id)
+            .single();
+
+          if (barbeariaError || !barbearia) {
+            throw new Error('Barbearia não encontrada');
+          }
+
+          if (!barbearia.ativo) {
+            throw new Error('Barbearia está inativa');
+          }
+
+          if (barbearia.gerente_id) {
+            throw new Error('Barbearia já possui gerente');
+          }
+
+          // Atribuir gerente à barbearia
+          const { error: updateError } = await clientToUse
+            .from('barbearias')
+            .update({ 
+              gerente_id: newUser.id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', barbearia_id);
+
+          if (updateError) {
+            throw new Error('Erro ao atribuir gerente à barbearia');
+          }
+
+          barbeariaInfo = {
+            id: barbearia.id,
+            nome: barbearia.nome
+          };
+        }
+
         // Remover senha do objeto de retorno
         const { password_hash, ...userDataReturn } = newUser;
+        
+        // Adicionar informações da barbearia se for gerente
+        if (barbeariaInfo) {
+          userDataReturn.barbearia = barbeariaInfo;
+        }
+        
         return userDataReturn;
       } else {
         // Usar dados simulados
@@ -202,7 +261,14 @@ class AuthService {
       nome: user.nome
     };
 
-    return this.fastify.jwt.sign(payload);
+    const token = this.fastify.jwt.sign(payload);
+    
+    // Log para debug do token gerado
+    console.log('🔍 [AUTH] Token gerado:', token);
+    console.log('🔍 [AUTH] Token length:', token.length);
+    console.log('🔍 [AUTH] Token parts:', token.split('.').length);
+    
+    return token;
   }
 
   /**

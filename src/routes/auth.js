@@ -30,7 +30,7 @@ async function authRoutes(fastify, options) {
    *       400:
    *         description: Dados inválidos
    */
-  fastify.post('/login', authController.login);
+  fastify.post('/login', authController.login.bind(authController));
 
   /**
    * @swagger
@@ -76,7 +76,7 @@ async function authRoutes(fastify, options) {
    */
   fastify.post('/register', {
     preValidation: [fastify.authenticate, fastify.authorize(['admin'])]
-  }, authController.register);
+  }, authController.register.bind(authController));
 
   /**
    * @swagger
@@ -94,7 +94,7 @@ async function authRoutes(fastify, options) {
    */
   fastify.get('/me', {
     preValidation: [fastify.authenticate]
-  }, authController.me);
+  }, authController.getMe.bind(authController));
 
   /**
    * @swagger
@@ -112,7 +112,7 @@ async function authRoutes(fastify, options) {
    */
   fastify.post('/logout', {
     preValidation: [fastify.authenticate]
-  }, authController.logout);
+  }, authController.logout.bind(authController));
 }
 
 module.exports = authRoutes; 

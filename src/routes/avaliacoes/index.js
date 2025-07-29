@@ -1,17 +1,14 @@
 /**
  * Rotas de Avaliações - Arquivo Principal
  * 
- * Este arquivo registra todas as rotas relacionadas às avaliações,
- * organizadas em submódulos para facilitar manutenção e legibilidade.
+ * Este arquivo registra todas as rotas relacionadas às avaliações.
  */
 
-const enviarAvaliacao = require('./enviar');
-const listarAvaliacoes = require('./listar');
+const avaliacoesRoutes = require('../avaliacoes');
 
 async function avaliacaoRoutes(fastify, options) {
-  // Registrar submódulos
-  await fastify.register(enviarAvaliacao);
-  await fastify.register(listarAvaliacoes);
+  // Registrar rotas de avaliações
+  await fastify.register(avaliacoesRoutes);
 }
 
 module.exports = avaliacaoRoutes; 

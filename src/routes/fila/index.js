@@ -15,7 +15,7 @@
 const entrarNaFila = require('./entrar');
 const visualizarFila = require('./visualizar');
 const gerenciarFila = require('./gerenciar');
-const verificarStatus = require('./status');
+const verificarStatus = require('./status-fixed');
 const estatisticasFila = require('./estatisticas');
 
 /**
