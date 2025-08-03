@@ -136,4 +136,8 @@ puppeteer_cache/
 
 # WhatsApp temporary files
 *.tmp
-*.temp 
+*.temp .wwebjs_auth/
+.wwebjs_cache/
+session/
+auth-info.json
+*.session.json
