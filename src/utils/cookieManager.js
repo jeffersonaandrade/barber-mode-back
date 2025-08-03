@@ -115,7 +115,7 @@ class CookieManager {
     const userInfo = this.getAdminUserInfo();
     
     const isAuth = !!(token && userInfo);
-    console.log('🔍 [COOKIE] Verificação de autenticação admin:', isAuth ? '✅ Autenticado' : '❌ Não autenticado');
+    // console.log('🔍 [COOKIE] Verificação de autenticação admin:', isAuth ? '✅ Autenticado' : '❌ Não autenticado');
     
     return isAuth;
   }
@@ -175,7 +175,7 @@ class CookieManager {
     const clienteInfo = this.getClienteInfo();
     
     const isAuth = !!(token && clienteInfo);
-    console.log('🔍 [COOKIE] Verificação de autenticação cliente:', isAuth ? '✅ Autenticado' : '❌ Não autenticado');
+    // console.log('🔍 [COOKIE] Verificação de autenticação cliente:', isAuth ? '✅ Autenticado' : '❌ Não autenticado');
     
     return isAuth;
   }

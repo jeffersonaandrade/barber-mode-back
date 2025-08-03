@@ -26,10 +26,10 @@ class AuthController {
 
       // Configurar cookies de autenticação usando decorator centralizado
       if (this.fastify.setAuthCookie) {
-        console.log('Configurando cookies...');
+        // console.log('Configurando cookies...');
         this.fastify.setAuthCookie(reply, result.token, result.user);
       } else {
-        console.log('Decorator setAuthCookie não encontrado');
+                  // console.log('Decorator setAuthCookie não encontrado');
       }
 
       return reply.send({

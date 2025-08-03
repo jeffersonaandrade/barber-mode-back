@@ -264,9 +264,9 @@ class AuthService {
     const token = this.fastify.jwt.sign(payload);
     
     // Log para debug do token gerado
-    console.log('🔍 [AUTH] Token gerado:', token);
-    console.log('🔍 [AUTH] Token length:', token.length);
-    console.log('🔍 [AUTH] Token parts:', token.split('.').length);
+          // console.log('🔍 [AUTH] Token gerado:', token);
+      // console.log('🔍 [AUTH] Token length:', token.length);
+      // console.log('🔍 [AUTH] Token parts:', token.split('.').length);
     
     return token;
   }

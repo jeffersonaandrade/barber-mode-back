@@ -62,7 +62,7 @@ class RateLimitController {
       // Iniciar reset automático
       this.iniciarResetAutomatico();
       
-      console.log('✅ [RATE_LIMIT] Controlador inicializado com sucesso');
+      // console.log('✅ [RATE_LIMIT] Controlador inicializado com sucesso');
     } catch (error) {
       console.error('❌ [RATE_LIMIT] Erro ao inicializar:', error);
     }
@@ -271,7 +271,7 @@ class RateLimitController {
     this.controle.whatsapp.minuto.contador = 0;
     this.controle.whatsapp.minuto.resetTime = this.getNextMinute();
 
-    console.log('🔄 [RATE_LIMIT] Reset por minuto realizado');
+    // console.log('🔄 [RATE_LIMIT] Reset por minuto realizado');
   }
 
   resetDia() {
@@ -285,7 +285,7 @@ class RateLimitController {
     // Limpar notificações diárias dos usuários
     this.usuarios.clear();
 
-    console.log('🔄 [RATE_LIMIT] Reset diário realizado');
+    // console.log('🔄 [RATE_LIMIT] Reset diário realizado');
   }
 
   iniciarResetAutomatico() {
