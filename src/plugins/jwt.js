@@ -22,14 +22,14 @@ async function jwtPlugin(fastify, options) {
       const authHeader = request.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.substring(7); // Remove 'Bearer '
-        console.log('🔍 [AUTH] Token obtido do header Authorization');
+        // console.log('🔍 [AUTH] Token obtido do header Authorization');
       }
 
       // Se não encontrou no header, tentar obter do cookie
       if (!token) {
         token = fastify.getAuthToken(request);
         if (token) {
-          console.log('🔍 [AUTH] Token obtido do cookie');
+          // console.log('🔍 [AUTH] Token obtido do cookie');
         }
       }
 
@@ -43,10 +43,10 @@ async function jwtPlugin(fastify, options) {
       // Verificar token
       const decoded = await fastify.jwt.verify(token);
       request.user = decoded;
-      console.log('🔍 [AUTH] Token verificado com sucesso para usuário:', decoded.email);
+              // console.log('🔍 [AUTH] Token verificado com sucesso para usuário:', decoded.email);
       
     } catch (err) {
-      console.error('🔍 [AUTH] Erro na verificação do token:', err.message);
+              // console.error('🔍 [AUTH] Erro na verificação do token:', err.message);
       return reply.status(401).send({
         success: false,
         error: 'Token inválido ou expirado. Faça login novamente.'
@@ -64,14 +64,14 @@ async function jwtPlugin(fastify, options) {
         const authHeader = request.headers.authorization;
         if (authHeader && authHeader.startsWith('Bearer ')) {
           token = authHeader.substring(7); // Remove 'Bearer '
-          console.log('🔍 [AUTH] Token obtido do header Authorization (authorize)');
+          // console.log('🔍 [AUTH] Token obtido do header Authorization (authorize)');
         }
 
         // Se não encontrou no header, tentar obter do cookie
         if (!token) {
           token = fastify.getAuthToken(request);
           if (token) {
-            console.log('🔍 [AUTH] Token obtido do cookie (authorize)');
+            // console.log('🔍 [AUTH] Token obtido do cookie (authorize)');
           }
         }
 
@@ -94,7 +94,7 @@ async function jwtPlugin(fastify, options) {
           });
         }
       } catch (err) {
-        console.error('🔍 [AUTH] Erro na verificação do token (authorize):', err.message);
+        // console.error('🔍 [AUTH] Erro na verificação do token (authorize):', err.message);
         return reply.status(401).send({
           success: false,
           error: 'Token inválido ou expirado. Faça login novamente.'

@@ -587,7 +587,7 @@ class FilaService {
         throw new Error('Erro ao buscar clientes das últimas 24h');
       }
 
-      console.log(`[ESTATISTICAS] Encontrados ${clientes24h?.length || 0} clientes nas últimas 24h`);
+      // console.log(`[ESTATISTICAS] Encontrados ${clientes24h?.length || 0} clientes nas últimas 24h`);
 
       // Calcular tempos médios CORRETOS
       const temposEspera = [];
@@ -606,7 +606,7 @@ class FilaService {
         // Tempo total de espera (criação até finalização/atual)
         const tempoTotalMinutos = (tempoFinal - created) / (1000 * 60);
         
-        console.log(`[ESTATISTICAS] Cliente ${cliente.status}: criado ${created.toISOString()}, tempo total: ${Math.round(tempoTotalMinutos)} min`);
+        // console.log(`[ESTATISTICAS] Cliente ${cliente.status}: criado ${created.toISOString()}, tempo total: ${Math.round(tempoTotalMinutos)} min`);
         
         temposEspera.push(tempoTotalMinutos);
         
@@ -626,8 +626,8 @@ class FilaService {
         ? Math.round(temposAtendimento.reduce((a, b) => a + b, 0) / temposAtendimento.length)
         : 30; // padrão de 30 minutos
 
-      console.log(`[ESTATISTICAS] Tempo médio de espera: ${tempoMedioEspera} minutos`);
-      console.log(`[ESTATISTICAS] Tempo médio de atendimento: ${tempoMedioAtendimento} minutos`);
+      // console.log(`[ESTATISTICAS] Tempo médio de espera: ${tempoMedioEspera} minutos`);
+      // console.log(`[ESTATISTICAS] Tempo médio de atendimento: ${tempoMedioAtendimento} minutos`);
 
       // Tempo estimado para o próximo cliente
       const tempoEstimadoProximo = barbeirosStats.disponiveis > 0 

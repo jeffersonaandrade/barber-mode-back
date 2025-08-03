@@ -21,9 +21,9 @@ async function cookiePlugin(fastify, options) {
   // Decorator para definir cookie de autenticação de funcionário (12 horas)
   fastify.decorate('setAuthCookie', function(reply, token, userData) {
     // Log para debug do token
-    console.log('🔍 [COOKIE] Token antes de salvar:', token);
-    console.log('🔍 [COOKIE] Token length:', token.length);
-    console.log('🔍 [COOKIE] Token parts:', token.split('.').length);
+          // console.log('🔍 [COOKIE] Token antes de salvar:', token);
+      // console.log('🔍 [COOKIE] Token length:', token.length);
+      // console.log('🔍 [COOKIE] Token parts:', token.split('.').length);
     
     // Verificar se o token tem formato correto (3 partes)
     const tokenParts = token.split('.');
@@ -31,9 +31,9 @@ async function cookiePlugin(fastify, options) {
       console.error('❌ [COOKIE] Token com formato incorreto:', tokenParts.length, 'partes');
       // Tentar corrigir se tiver 4 partes
       if (tokenParts.length === 4) {
-        console.log('⚠️ [COOKIE] Tentando corrigir token com 4 partes...');
+        // console.log('⚠️ [COOKIE] Tentando corrigir token com 4 partes...');
         token = tokenParts.slice(0, 3).join('.');
-        console.log('✅ [COOKIE] Token corrigido:', token);
+        // console.log('✅ [COOKIE] Token corrigido:', token);
       }
     }
     
