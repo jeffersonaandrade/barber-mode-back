@@ -90,220 +90,202 @@ class WhatsAppService {
     }
   }
 
-  async gerarMensagemInteligente(tipo, dados) {
-    try {
-      // Verificar rate limits antes de usar Groq
-      const tokensEstimados = 150; // Estimativa baseada no max_tokens
-      const podeUsarGroq = await this.rateLimitController.podeFazerRequisicao('groq', tokensEstimados);
-      
-      if (!podeUsarGroq) {
-        console.warn('⚠️ [WHATSAPP] Rate limit atingido, usando mensagem padrão');
-        return this.getMensagemPadrao(tipo, dados);
-      }
+  // ========================================
+  // 🎯 MÉTODOS SIMPLIFICADOS - APENAS 2!
+  // ========================================
 
-      const prompt = this.criarPrompt(tipo, dados);
-      
-      const completion = await this.groq.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: "Você é um assistente de barbearia que envia mensagens amigáveis e profissionais via WhatsApp. Mantenha as mensagens curtas, cordiais e informativas."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        model: "llama3-8b-8192",
-        temperature: 0.7,
-        max_tokens: 150,
-      });
-
-      // Registrar uso do Groq
-      const tokensUsados = completion.usage?.total_tokens || tokensEstimados;
-      this.rateLimitController.registrarUso('groq', tokensUsados);
-
-      return completion.choices[0]?.message?.content || this.getMensagemPadrao(tipo, dados);
-    } catch (error) {
-      console.error('❌ [GROQ] Erro ao gerar mensagem:', error);
-      return this.getMensagemPadrao(tipo, dados);
-    }
-  }
-
-  criarPrompt(tipo, dados) {
-    const { cliente, barbearia, posicao, tempoEstimado } = dados;
-    
-    switch (tipo) {
-      case 'vez_chegou':
-        return `Gere uma mensagem amigável para ${cliente.nome} informando que sua vez chegou na barbearia ${barbearia.nome}. 
-        A mensagem deve ser curta, cordial e incluir instruções para se dirigir ao atendimento. 
-        Use emojis apropriados e seja profissional mas caloroso.`;
-      
-      case 'atendimento_iniciado':
-        return `Gere uma mensagem para ${cliente.nome} informando que o atendimento foi iniciado na barbearia ${barbearia.nome}. 
-        A mensagem deve ser breve e agradecer a paciência.`;
-      
-      case 'atendimento_finalizado':
-        return `Gere uma mensagem de agradecimento para ${cliente.nome} pelo atendimento na barbearia ${barbearia.nome}. 
-        A mensagem deve ser cordial e convidar para retornar.`;
-      
-      case 'posicao_fila':
-        return `Gere uma mensagem informativa para ${cliente.nome} sobre sua posição ${posicao} na fila da barbearia ${barbearia.nome}. 
-        Inclua tempo estimado de ${tempoEstimado} minutos. Seja positivo e informativo.`;
-      
-      default:
-        return `Gere uma mensagem amigável para ${cliente.nome} sobre a barbearia ${barbearia.nome}.`;
-    }
-  }
-
-  getMensagemPadrao(tipo, dados) {
-    const { cliente, barbearia, posicao, tempoEstimado } = dados;
-    
-    switch (tipo) {
-      case 'vez_chegou':
-        return `🎉 *${cliente.nome}*, sua vez chegou!\n\n` +
-               `📍 *${barbearia.nome}*\n` +
-               `⏰ Dirija-se ao atendimento\n` +
-               `🙏 Obrigado pela paciência!`;
-      
-      case 'atendimento_iniciado':
-        return `✂️ *${cliente.nome}*, atendimento iniciado!\n\n` +
-               `📍 *${barbearia.nome}*\n` +
-               `⏰ Seu barbeiro está pronto\n` +
-               `🎯 Aproveite o serviço!`;
-      
-      case 'atendimento_finalizado':
-        return `✨ *${cliente.nome}*, atendimento finalizado!\n\n` +
-               `📍 *${barbearia.nome}*\n` +
-               `💇‍♂️ Obrigado pela preferência\n` +
-               `🔄 Volte sempre!`;
-      
-      case 'posicao_fila':
-        return `📋 *${cliente.nome}*, status da fila:\n\n` +
-               `📍 *${barbearia.nome}*\n` +
-               `🎯 Posição: ${posicao}\n` +
-               `⏱️ Tempo estimado: ${tempoEstimado} min\n` +
-               `⏳ Aguarde ser chamado`;
-      
-      default:
-        return `Olá *${cliente.nome}*! Mensagem da *${barbearia.nome}*.`;
-    }
-  }
-
-  async enviarNotificacao(telefone, tipo, dados) {
+  /**
+   * 1. NOTIFICAR QUE A VEZ CHEGOU (COM NOME DO BARBEIRO)
+   */
+  async notificarVezChegou(nomeCliente, nomeBarbeiro, telefone) {
     try {
       if (!this.isReady) {
-        console.warn('⚠️ [WHATSAPP] Cliente não está pronto. Tentando reconectar...');
-        await this.init();
+        console.warn('⚠️ [WHATSAPP] Cliente não está pronto');
         return false;
       }
 
-      // Verificar rate limits do WhatsApp
-      const podeEnviarWhatsApp = await this.rateLimitController.podeFazerRequisicao('whatsapp');
-      if (!podeEnviarWhatsApp) {
-        console.warn('⚠️ [WHATSAPP] Rate limit do WhatsApp atingido');
-        return false;
-      }
-
-      // Verificar se pode enviar para este usuário
-      const podeEnviarParaUsuario = await this.rateLimitController.podeEnviarParaUsuario(telefone, tipo);
-      if (!podeEnviarParaUsuario) {
-        console.warn('⚠️ [WHATSAPP] Usuário atingiu limite de notificações');
-        return false;
-      }
-
-      // Formatar telefone (remover caracteres especiais e adicionar código do país se necessário)
       const telefoneFormatado = this.formatarTelefone(telefone);
       
-      if (!telefoneFormatado) {
-        console.error('❌ [WHATSAPP] Telefone inválido:', telefone);
-        return false;
+      // Verificar rate limits
+      const podeUsarGroq = await this.rateLimitController.podeFazerRequisicao('groq', 100);
+      
+      let mensagem;
+      if (podeUsarGroq) {
+        // Usar Groq AI para mensagem personalizada
+        mensagem = await this.gerarMensagemVezChegou(nomeCliente, nomeBarbeiro);
+      } else {
+        // Usar mensagem padrão
+        mensagem = this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
       }
 
-      // Gerar mensagem inteligente
-      const mensagem = await this.gerarMensagemInteligente(tipo, dados);
-      
       // Enviar mensagem
-      const chatId = `${telefoneFormatado}@c.us`;
-      const resultado = await this.client.sendMessage(chatId, mensagem);
+      await this.client.sendMessage(telefoneFormatado, mensagem);
       
-      // Registrar uso do WhatsApp
-      this.rateLimitController.registrarUso('whatsapp');
-      
-      console.log(`✅ [WHATSAPP] Notificação enviada para ${telefoneFormatado}:`, {
-        tipo,
-        cliente: dados.cliente?.nome,
-        barbearia: dados.barbearia?.nome,
-        messageId: resultado.id._serialized
-      });
-
+      console.log(`✅ [WHATSAPP] Notificação enviada para ${nomeCliente} - Vez chegou!`);
       return true;
     } catch (error) {
-      console.error('❌ [WHATSAPP] Erro ao enviar notificação:', error);
+      console.error('❌ [WHATSAPP] Erro ao notificar vez chegou:', error);
       return false;
     }
   }
 
-  formatarTelefone(telefone) {
+  /**
+   * 2. ENVIAR LINK DE AVALIAÇÃO
+   */
+  async enviarAvaliacao(nomeCliente, linkAvaliacao, telefone) {
     try {
-      // Remover todos os caracteres não numéricos
-      let numero = telefone.replace(/\D/g, '');
-      
-      // Se não tem código do país, adicionar 55 (Brasil)
-      if (numero.length === 11 && numero.startsWith('0')) {
-        numero = '55' + numero.substring(1);
-      } else if (numero.length === 10) {
-        numero = '55' + numero;
-      } else if (numero.length === 11 && !numero.startsWith('55')) {
-        numero = '55' + numero;
+      if (!this.isReady) {
+        console.warn('⚠️ [WHATSAPP] Cliente não está pronto');
+        return false;
       }
+
+      const telefoneFormatado = this.formatarTelefone(telefone);
       
-      // Validar se tem pelo menos 12 dígitos (55 + DDD + número)
-      if (numero.length < 12) {
-        return null;
+      // Verificar rate limits
+      const podeUsarGroq = await this.rateLimitController.podeFazerRequisicao('groq', 100);
+      
+      let mensagem;
+      if (podeUsarGroq) {
+        // Usar Groq AI para mensagem personalizada
+        mensagem = await this.gerarMensagemAvaliacao(nomeCliente, linkAvaliacao);
+      } else {
+        // Usar mensagem padrão
+        mensagem = this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
       }
+
+      // Enviar mensagem
+      await this.client.sendMessage(telefoneFormatado, mensagem);
       
-      return numero;
+      console.log(`✅ [WHATSAPP] Link de avaliação enviado para ${nomeCliente}!`);
+      return true;
     } catch (error) {
-      console.error('❌ [WHATSAPP] Erro ao formatar telefone:', error);
-      return null;
+      console.error('❌ [WHATSAPP] Erro ao enviar avaliação:', error);
+      return false;
     }
   }
 
-  async notificarVezChegou(cliente, barbearia) {
-    return this.enviarNotificacao(cliente.telefone, 'vez_chegou', {
-      cliente,
-      barbearia
-    });
+  // ========================================
+  // 🤖 GERAÇÃO DE MENSAGENS COM GROQ AI
+  // ========================================
+
+  async gerarMensagemVezChegou(nomeCliente, nomeBarbeiro) {
+    try {
+      const prompt = `Gere uma mensagem amigável e profissional para WhatsApp informando que a vez do cliente chegou na barbearia.
+
+Contexto:
+- Nome do cliente: ${nomeCliente}
+- Nome do barbeiro: ${nomeBarbeiro}
+- Barbearia: Lucas Barbearia
+
+Requisitos:
+- Tom amigável e profissional
+- Incluir emojis apropriados
+- Mencionar o nome do barbeiro
+- Máximo 3 linhas
+- Não incluir saudações longas
+
+Exemplo de estrutura:
+🎉 Olá [Nome]! Sua vez chegou na Lucas Barbearia!
+✂️ Barbeiro: [Nome do Barbeiro]
+Venha até o balcão!`;
+
+      const completion = await this.groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama3-8b-8192',
+        max_tokens: 100,
+        temperature: 0.7,
+      });
+
+      return completion.choices[0]?.message?.content || this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
+    } catch (error) {
+      console.error('❌ [WHATSAPP] Erro ao gerar mensagem com Groq:', error);
+      return this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
+    }
   }
 
-  async notificarAtendimentoIniciado(cliente, barbearia) {
-    return this.enviarNotificacao(cliente.telefone, 'atendimento_iniciado', {
-      cliente,
-      barbearia
-    });
+  async gerarMensagemAvaliacao(nomeCliente, linkAvaliacao) {
+    try {
+      const prompt = `Gere uma mensagem amigável para WhatsApp pedindo avaliação do serviço.
+
+Contexto:
+- Nome do cliente: ${nomeCliente}
+- Link da avaliação: ${linkAvaliacao}
+- Barbearia: Lucas Barbearia
+
+Requisitos:
+- Tom agradecido e amigável
+- Incluir emojis apropriados
+- Mencionar que o atendimento foi concluído
+- Incluir o link da avaliação
+- Máximo 4 linhas
+- Não ser muito longo
+
+Exemplo de estrutura:
+✨ [Nome], seu atendimento foi concluído!
+⭐ Que tal avaliar nosso serviço?
+Clique aqui: [LINK]
+Sua opinião é muito importante para nós!`;
+
+      const completion = await this.groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama3-8b-8192',
+        max_tokens: 120,
+        temperature: 0.7,
+      });
+
+      return completion.choices[0]?.message?.content || this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
+    } catch (error) {
+      console.error('❌ [WHATSAPP] Erro ao gerar mensagem com Groq:', error);
+      return this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
+    }
   }
 
-  async notificarAtendimentoFinalizado(cliente, barbearia) {
-    return this.enviarNotificacao(cliente.telefone, 'atendimento_finalizado', {
-      cliente,
-      barbearia
-    });
+  // ========================================
+  // 📝 MENSAGENS PADRÃO (FALLBACK)
+  // ========================================
+
+  getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro) {
+    return `🎉 Olá ${nomeCliente}! Sua vez chegou na Lucas Barbearia!
+
+✂️ Barbeiro: ${nomeBarbeiro}
+Venha até o balcão!
+
+Obrigado pela paciência! 🙏`;
   }
 
-  async notificarPosicaoFila(cliente, barbearia, posicao, tempoEstimado = 15) {
-    return this.enviarNotificacao(cliente.telefone, 'posicao_fila', {
-      cliente,
-      barbearia,
-      posicao,
-      tempoEstimado
-    });
+  getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao) {
+    return `✨ ${nomeCliente}, seu atendimento foi concluído!
+
+⭐ Que tal avaliar nosso serviço?
+Clique aqui: ${linkAvaliacao}
+
+Sua opinião é muito importante para nós! 🙏`;
+  }
+
+  // ========================================
+  // 🛠️ UTILITÁRIOS
+  // ========================================
+
+  formatarTelefone(telefone) {
+    // Remove tudo que não é número
+    let numero = telefone.replace(/\D/g, '');
+    
+    // Adiciona código do país se não tiver
+    if (numero.length === 11 && numero.startsWith('0')) {
+      numero = '55' + numero.substring(1);
+    } else if (numero.length === 10) {
+      numero = '55' + numero;
+    }
+    
+    // Adiciona @c.us para WhatsApp
+    return numero + '@c.us';
   }
 
   async getStatus() {
     return {
       isReady: this.isReady,
-      isConnected: this.client ? true : false
+      isConnected: this.client ? true : false,
+      rateLimitStatus: await this.rateLimitController.getEstatisticas()
     };
   }
 
@@ -311,11 +293,15 @@ class WhatsAppService {
     if (this.client) {
       await this.client.destroy();
       this.isReady = false;
+      console.log('📱 [WHATSAPP] Cliente desconectado');
     }
   }
 }
 
-// Singleton para garantir uma única instância
+// ========================================
+// 🎯 SINGLETON PATTERN
+// ========================================
+
 let whatsappServiceInstance = null;
 
 function getWhatsAppService() {

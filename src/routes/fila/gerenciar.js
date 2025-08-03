@@ -145,10 +145,29 @@ async function gerenciarFila(fastify, options) {
       // Enviar notificação WhatsApp para o cliente
       try {
         const whatsappService = getWhatsAppService();
-        const notificacaoEnviada = await whatsappService.notificarVezChegou(proximoCliente, barbearia);
+        
+        // Buscar informações do barbeiro se foi atribuído
+        let barbeiroInfo = null;
+        if (updateData.barbeiro_id) {
+          const { data: barbeiro } = await fastify.supabase
+            .from('users')
+            .select('id, nome, telefone')
+            .eq('id', updateData.barbeiro_id)
+            .single();
+          barbeiroInfo = barbeiro;
+        }
+        
+        // Nome do barbeiro (ou "Barbeiro" se não foi atribuído)
+        const nomeBarbeiro = barbeiroInfo ? barbeiroInfo.nome : 'Barbeiro';
+        
+        const notificacaoEnviada = await whatsappService.notificarVezChegou(
+          proximoCliente.nome,    // Nome do cliente
+          nomeBarbeiro,           // Nome do barbeiro
+          proximoCliente.telefone // Telefone do cliente
+        );
         
         if (notificacaoEnviada) {
-          console.log(`📱 [WHATSAPP] Notificação enviada para ${proximoCliente.nome} (${proximoCliente.telefone})`);
+          console.log(`📱 [WHATSAPP] Notificação enviada para ${proximoCliente.nome} - Barbeiro: ${nomeBarbeiro}`);
         } else {
           console.warn(`⚠️ [WHATSAPP] Falha ao enviar notificação para ${proximoCliente.nome}`);
         }
@@ -869,6 +888,28 @@ async function gerenciarFila(fastify, options) {
           success: false, 
           error: 'Erro ao finalizar atendimento' 
         });
+      }
+      
+      // Enviar link de avaliação via WhatsApp
+      try {
+        const whatsappService = getWhatsAppService();
+        
+        // Gerar link de avaliação (você pode personalizar este link)
+        const linkAvaliacao = `https://lucas-barbearia.com/avaliacao/${cliente.id}`;
+        
+        const avaliacaoEnviada = await whatsappService.enviarAvaliacao(
+          cliente.nome,           // Nome do cliente
+          linkAvaliacao,          // Link da avaliação
+          cliente.telefone        // Telefone do cliente
+        );
+        
+        if (avaliacaoEnviada) {
+          console.log(`📱 [WHATSAPP] Link de avaliação enviado para ${cliente.nome}`);
+        } else {
+          console.warn(`⚠️ [WHATSAPP] Falha ao enviar avaliação para ${cliente.nome}`);
+        }
+      } catch (error) {
+        console.error('❌ [WHATSAPP] Erro ao enviar avaliação:', error);
       }
       
       return reply.status(200).send({
