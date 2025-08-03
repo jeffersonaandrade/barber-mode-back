@@ -1,0 +1,68 @@
+name: 🔒 Security Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Executar diariamente às 6h da manhã
+    - cron: '0 6 * * *'
+
+jobs:
+  security:
+    name: Security Verification
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 🔒 Install dependencies
+      run: npm ci
+      
+    - name: 🔍 Run security checks
+      run: npm run security:check
+      
+    - name: 🧪 Run tests
+      run: npm test
+      
+    - name: 📊 Generate security report
+      run: npm run security:check > security-report.txt
+      
+    - name: 📤 Upload security report
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-report
+        path: security-report.txt
+        retention-days: 30
+        
+    - name: 🚨 Security audit
+      run: npm audit --audit-level=moderate
+      
+    - name: 📋 Check for outdated dependencies
+      run: npm outdated --depth=0 || true
+      
+    - name: 🔐 Lock file integrity
+      run: npm run security:lockfile
+      
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: moderate
+        allow-licenses: MIT, Apache-2.0, ISC, BSD-2-Clause, BSD-3-Clause 

@@ -1,0 +1,18 @@
+{
+  "path": "package-lock.json",
+  "type": "npm",
+  "allowed-hosts": [
+    "npm",
+    "registry.npmjs.org",
+    "registry.yarnpkg.com"
+  ],
+  "allowed-schemes": [
+    "https"
+  ],
+  "allowed-urls": [
+    "https://registry.npmjs.org/",
+    "https://registry.yarnpkg.com/"
+  ],
+  "validate-https": true,
+  "validate-integrity": true
+} 
