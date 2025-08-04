@@ -15,6 +15,10 @@ class RelatorioService {
     const { barbearia_id, data_inicio, data_fim, periodo = 'mes' } = filtros;
 
     try {
+      // Converter datas para UTC (timezone brasileiro -03:00)
+      const dataInicioUTC = new Date(data_inicio + 'T00:00:00-03:00').toISOString();
+      const dataFimUTC = new Date(data_fim + 'T23:59:59-03:00').toISOString();
+
       // Query base para histórico de atendimentos
       let query = this.supabase
         .from('historico_atendimentos')
@@ -24,8 +28,8 @@ class RelatorioService {
           users(id, nome, email),
           barbearias(nome)
         `)
-        .gte('data_inicio', data_inicio)
-        .lte('data_inicio', data_fim);
+        .gte('data_inicio', dataInicioUTC)
+        .lte('data_inicio', dataFimUTC);
 
       if (barbearia_id) {
         query = query.eq('barbearia_id', barbearia_id);
@@ -78,6 +82,10 @@ class RelatorioService {
     const { barbearia_id, barbeiro_id, data_inicio, data_fim } = filtros;
 
     try {
+      // Converter datas para UTC (timezone brasileiro -03:00)
+      const dataInicioUTC = new Date(data_inicio + 'T00:00:00-03:00').toISOString();
+      const dataFimUTC = new Date(data_fim + 'T23:59:59-03:00').toISOString();
+
       // Query base para comissões
       let query = this.supabase
         .from('historico_atendimentos')
@@ -87,8 +95,8 @@ class RelatorioService {
           users(id, nome, email),
           barbearias(nome)
         `)
-        .gte('data_inicio', data_inicio)
-        .lte('data_inicio', data_fim)
+        .gte('data_inicio', dataInicioUTC)
+        .lte('data_inicio', dataFimUTC)
         .gt('valor_comissao', 0);
 
       if (barbearia_id) {
@@ -143,6 +151,10 @@ class RelatorioService {
     const { barbearia_id, data_inicio, data_fim, periodo = 'mes' } = filtros;
 
     try {
+      // Converter datas para UTC (timezone brasileiro -03:00)
+      const dataInicioUTC = new Date(data_inicio + 'T00:00:00-03:00').toISOString();
+      const dataFimUTC = new Date(data_fim + 'T23:59:59-03:00').toISOString();
+
       // Query base para atendimentos
       let query = this.supabase
         .from('historico_atendimentos')
@@ -152,8 +164,8 @@ class RelatorioService {
           users(id, nome, email),
           barbearias(nome)
         `)
-        .gte('data_inicio', data_inicio)
-        .lte('data_inicio', data_fim);
+        .gte('data_inicio', dataInicioUTC)
+        .lte('data_inicio', dataFimUTC);
 
       if (barbearia_id) {
         query = query.eq('barbearia_id', barbearia_id);
@@ -201,6 +213,10 @@ class RelatorioService {
     const { barbearia_id, data_inicio, data_fim, periodo = 'mes' } = filtros;
 
     try {
+      // Converter datas para UTC (timezone brasileiro -03:00)
+      const dataInicioUTC = new Date(data_inicio + 'T00:00:00-03:00').toISOString();
+      const dataFimUTC = new Date(data_fim + 'T23:59:59-03:00').toISOString();
+
       // Query para avaliações
       let query = this.supabase
         .from('avaliacoes')
@@ -210,8 +226,8 @@ class RelatorioService {
           users(id, nome),
           barbearias(nome)
         `)
-        .gte('created_at', data_inicio)
-        .lte('created_at', data_fim);
+        .gte('created_at', dataInicioUTC)
+        .lte('created_at', dataFimUTC);
 
       if (barbearia_id) {
         query = query.eq('barbearia_id', barbearia_id);
@@ -579,24 +595,37 @@ class RelatorioService {
   calcularMetricasSatisfacao(avaliacoes) {
     if (avaliacoes.length === 0) {
       return {
-        nota_media: 0,
+        nota_media_estrutura: 0,
+        nota_media_barbeiros: 0,
         total_avaliacoes: 0,
-        distribuição: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        distribuicao_estrutura: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        distribuicao_barbeiros: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
       };
     }
     
-    const notas = avaliacoes.map(a => a.rating);
-    const notaMedia = notas.reduce((sum, n) => sum + n, 0) / notas.length;
+    const notasEstrutura = avaliacoes.map(a => a.rating_estrutura);
+    const notasBarbeiros = avaliacoes.map(a => a.rating_barbeiro);
     
-    const distribuicao = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    notas.forEach(nota => {
-      distribuicao[nota] = (distribuicao[nota] || 0) + 1;
+    const notaMediaEstrutura = notasEstrutura.reduce((sum, n) => sum + n, 0) / notasEstrutura.length;
+    const notaMediaBarbeiros = notasBarbeiros.reduce((sum, n) => sum + n, 0) / notasBarbeiros.length;
+    
+    const distribuicaoEstrutura = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const distribuicaoBarbeiros = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    
+    notasEstrutura.forEach(nota => {
+      distribuicaoEstrutura[nota] = (distribuicaoEstrutura[nota] || 0) + 1;
+    });
+    
+    notasBarbeiros.forEach(nota => {
+      distribuicaoBarbeiros[nota] = (distribuicaoBarbeiros[nota] || 0) + 1;
     });
     
     return {
-      nota_media: notaMedia,
+      nota_media_estrutura: notaMediaEstrutura,
+      nota_media_barbeiros: notaMediaBarbeiros,
       total_avaliacoes: avaliacoes.length,
-      distribuicao
+      distribuicao_estrutura: distribuicaoEstrutura,
+      distribuicao_barbeiros: distribuicaoBarbeiros
     };
   }
 
@@ -620,7 +649,7 @@ class RelatorioService {
       }
       
       dados[barbeiroId].avaliacoes++;
-      dados[barbeiroId].notas.push(avaliacao.rating);
+      dados[barbeiroId].notas.push(avaliacao.rating_barbeiro); // Usar rating_barbeiro
     });
     
     // Calcular nota média
@@ -679,12 +708,12 @@ class RelatorioService {
     const { barbearia_id, data_inicio, data_fim, periodo = 'mes' } = filtros;
 
     try {
-      // Definir datas padrão se não fornecidas
+      // Definir datas padrão se não fornecidas (considerando timezone brasileiro)
       const hoje = new Date();
       const dataInicio = data_inicio || new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0];
       const dataFim = data_fim || hoje.toISOString().split('T')[0];
 
-      // Gerar relatórios específicos
+      // Gerar relatórios específicos (já com timezone corrigido)
       const [financeiro, comissoes, performance, satisfacao] = await Promise.all([
         this.gerarRelatorioFinanceiro({ barbearia_id, data_inicio: dataInicio, data_fim: dataFim, periodo }),
         this.gerarRelatorioComissoes({ barbearia_id, data_inicio: dataInicio, data_fim: dataFim }),

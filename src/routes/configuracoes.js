@@ -562,6 +562,347 @@ async function configuracoesRoutes(fastify, options) {
       });
     }
   });
+
+  // Listar horários de funcionamento
+  fastify.get('/horarios/:barbearia_id', {
+    preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
+    schema: {
+      description: 'Listar horários de funcionamento (ADMIN/GERENTE)',
+      tags: ['configuracoes'],
+      security: [{ Bearer: [] }],
+      params: {
+        type: 'object',
+        required: ['barbearia_id'],
+        properties: {
+          barbearia_id: { type: 'integer' }
+        }
+      },
+      response: {
+        200: {
+          description: 'Horários de funcionamento',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                segunda: { type: 'object' },
+                terca: { type: 'object' },
+                quarta: { type: 'object' },
+                quinta: { type: 'object' },
+                sexta: { type: 'object' },
+                sabado: { type: 'object' },
+                domingo: { type: 'object' }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { barbearia_id } = request.params;
+      const userRole = request.user.role;
+      const userId = request.user.id;
+
+      // Verificar permissões
+      if (userRole === 'gerente') {
+        // Gerente só pode ver horários da sua barbearia
+        const { data: gerenteBarbearia } = await fastify.supabase
+          .from('barbearias')
+          .select('id')
+          .eq('gerente_id', userId)
+          .single();
+          
+        if (!gerenteBarbearia || parseInt(barbearia_id) !== gerenteBarbearia.id) {
+          return reply.status(403).send({
+            success: false,
+            error: 'Você só pode ver horários da sua barbearia'
+          });
+        }
+      }
+
+      // Buscar horários no banco
+      const { data: horarios, error } = await fastify.supabase
+        .from('horarios_funcionamento')
+        .select('*')
+        .eq('barbearia_id', barbearia_id)
+        .order('dia_semana');
+
+      if (error) {
+        throw new Error('Erro ao buscar horários: ' + error.message);
+      }
+
+      // Organizar horários por dia da semana
+      const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+      const horariosOrganizados = {};
+
+      // Inicializar todos os dias como fechados
+      diasSemana.forEach(dia => {
+        horariosOrganizados[dia] = {
+          aberto: false,
+          hora_inicio: null,
+          hora_fim: null
+        };
+      });
+
+      // Preencher com dados do banco
+      horarios.forEach(horario => {
+        const dia = diasSemana[horario.dia_semana];
+        horariosOrganizados[dia] = {
+          aberto: horario.aberto,
+          hora_inicio: horario.hora_inicio,
+          hora_fim: horario.hora_fim
+        };
+      });
+
+      return reply.send({
+        success: true,
+        data: horariosOrganizados
+      });
+
+    } catch (error) {
+      console.error('Erro ao listar horários:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Erro interno do servidor: ' + error.message
+      });
+    }
+  });
+
+  // Atualizar horários de funcionamento
+  fastify.put('/horarios/:barbearia_id', {
+    preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
+    schema: {
+      description: 'Atualizar horários de funcionamento (ADMIN/GERENTE)',
+      tags: ['configuracoes'],
+      security: [{ Bearer: [] }],
+      params: {
+        type: 'object',
+        required: ['barbearia_id'],
+        properties: {
+          barbearia_id: { type: 'integer' }
+        }
+      },
+      body: {
+        type: 'object',
+        properties: {
+          segunda: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          },
+          terca: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          },
+          quarta: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          },
+          quinta: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          },
+          sexta: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          },
+          sabado: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          },
+          domingo: {
+            type: 'object',
+            properties: {
+              aberto: { type: 'boolean' },
+              hora_inicio: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
+              hora_fim: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
+            }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { barbearia_id } = request.params;
+      const horariosData = request.body;
+      const userRole = request.user.role;
+      const userId = request.user.id;
+
+      // Verificar permissões
+      if (userRole === 'gerente') {
+        // Gerente só pode atualizar horários da sua barbearia
+        const { data: gerenteBarbearia } = await fastify.supabase
+          .from('barbearias')
+          .select('id')
+          .eq('gerente_id', userId)
+          .single();
+          
+        if (!gerenteBarbearia || parseInt(barbearia_id) !== gerenteBarbearia.id) {
+          return reply.status(403).send({
+            success: false,
+            error: 'Você só pode atualizar horários da sua barbearia'
+          });
+        }
+      }
+
+      // Validar dados
+      const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+      const horariosParaAtualizar = [];
+
+      diasSemana.forEach((dia, index) => {
+        const horario = horariosData[dia];
+        
+        if (horario && horario.aberto) {
+          // Se está aberto, validar horários
+          if (!horario.hora_inicio || !horario.hora_fim) {
+            return reply.status(400).send({
+              success: false,
+              error: `Horários de início e fim são obrigatórios para ${dia}`
+            });
+          }
+
+          // Validar se hora_fim é maior que hora_inicio
+          const inicio = new Date(`2000-01-01T${horario.hora_inicio}`);
+          const fim = new Date(`2000-01-01T${horario.hora_fim}`);
+          
+          if (fim <= inicio) {
+            return reply.status(400).send({
+              success: false,
+              error: `Hora de fim deve ser maior que hora de início para ${dia}`
+            });
+          }
+        }
+
+        horariosParaAtualizar.push({
+          barbearia_id: parseInt(barbearia_id),
+          dia_semana: index,
+          aberto: horario ? horario.aberto : false,
+          hora_inicio: horario && horario.aberto ? horario.hora_inicio : null,
+          hora_fim: horario && horario.aberto ? horario.hora_fim : null,
+          updated_at: new Date().toISOString()
+        });
+      });
+
+      // Atualizar horários usando upsert
+      const { error } = await fastify.supabase
+        .from('horarios_funcionamento')
+        .upsert(horariosParaAtualizar, { 
+          onConflict: 'barbearia_id,dia_semana' 
+        });
+
+      if (error) {
+        throw new Error('Erro ao atualizar horários: ' + error.message);
+      }
+
+      console.log(`✅ [HORÁRIOS] Horários atualizados para barbearia ${barbearia_id} por ${userRole} ${userId}`);
+
+      return reply.send({
+        success: true,
+        message: 'Horários atualizados com sucesso',
+        data: horariosData
+      });
+
+    } catch (error) {
+      console.error('Erro ao atualizar horários:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Erro interno do servidor: ' + error.message
+      });
+    }
+  });
+
+  // Deletar horários de uma barbearia (resetar para fechado)
+  fastify.delete('/horarios/:barbearia_id', {
+    preValidation: [fastify.authenticate, checkAdminOrGerenteRole],
+    schema: {
+      description: 'Resetar horários de funcionamento (ADMIN/GERENTE)',
+      tags: ['configuracoes'],
+      security: [{ Bearer: [] }],
+      params: {
+        type: 'object',
+        required: ['barbearia_id'],
+        properties: {
+          barbearia_id: { type: 'integer' }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const { barbearia_id } = request.params;
+      const userRole = request.user.role;
+      const userId = request.user.id;
+
+      // Verificar permissões
+      if (userRole === 'gerente') {
+        const { data: gerenteBarbearia } = await fastify.supabase
+          .from('barbearias')
+          .select('id')
+          .eq('gerente_id', userId)
+          .single();
+          
+        if (!gerenteBarbearia || parseInt(barbearia_id) !== gerenteBarbearia.id) {
+          return reply.status(403).send({
+            success: false,
+            error: 'Você só pode resetar horários da sua barbearia'
+          });
+        }
+      }
+
+      // Resetar todos os horários para fechado
+      const { error } = await fastify.supabase
+        .from('horarios_funcionamento')
+        .update({
+          aberto: false,
+          hora_inicio: null,
+          hora_fim: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('barbearia_id', barbearia_id);
+
+      if (error) {
+        throw new Error('Erro ao resetar horários: ' + error.message);
+      }
+
+      console.log(`✅ [HORÁRIOS] Horários resetados para barbearia ${barbearia_id} por ${userRole} ${userId}`);
+
+      return reply.send({
+        success: true,
+        message: 'Horários resetados com sucesso'
+      });
+
+    } catch (error) {
+      console.error('Erro ao resetar horários:', error);
+      return reply.status(500).send({
+        success: false,
+        error: 'Erro interno do servidor: ' + error.message
+      });
+    }
+  });
 }
 
 module.exports = configuracoesRoutes; 

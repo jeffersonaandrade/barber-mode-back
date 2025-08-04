@@ -86,46 +86,107 @@ async function filaRoutes(fastify, options) {
         }
       }
       
-      console.log('🔍 [FILA] Gerando token...');
-      // Gerar token único para o cliente
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      
-      console.log('🔍 [FILA] Calculando posição...');
-      // Obter posição atual na fila
-      const { data: ultimoCliente, error: posicaoError } = await fastify.supabase
+      console.log('🔍 [FILA] Verificando se cliente já existe...');
+      // Verificar se o cliente já existe (nome + telefone + barbearia)
+      const { data: clienteExistente, error: clienteError } = await fastify.supabase
         .from('clientes')
-        .select('posicao')
+        .select('id, nome, telefone, status, posicao, token')
+        .eq('nome', nome)
+        .eq('telefone', telefone)
         .eq('barbearia_id', barbearia_id)
-        .in('status', ['aguardando', 'proximo'])
-        .order('posicao', { ascending: false })
-        .limit(1)
         .single();
         
-      console.log('📋 [FILA] Resultado posição:', { ultimoCliente, posicaoError });
-        
-      const posicao = ultimoCliente ? ultimoCliente.posicao + 1 : 1;
+      console.log('📋 [FILA] Cliente existente:', { clienteExistente, clienteError });
       
-      console.log('🔍 [FILA] Inserindo cliente...');
-      // Inserir cliente na fila
-      const { data: cliente, error: insertError } = await fastify.supabase
-        .from('clientes')
-        .insert({
-          nome,
-          telefone,
-          token,
-          barbearia_id,
-          barbeiro_id: barbeiro_id || null,
-          status: 'aguardando',
-          posicao
-        })
-        .select()
-        .single();
+      let cliente;
+      let isUpdate = false;
+      
+      if (clienteExistente) {
+        console.log('🔄 [FILA] Cliente já existe, atualizando dados...');
         
-      console.log('📋 [FILA] Resultado inserção:', { cliente, insertError });
+        // Cliente já existe, vamos atualizar para entrar na fila novamente
+        // (mesmo se já estiver na fila, permite reentrada)
         
-      if (insertError) {
-        console.log('❌ [FILA] Erro na inserção:', insertError);
-        return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+        // Gerar novo token
+        const novoToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        
+        // Calcular nova posição
+        const { data: ultimoCliente, error: posicaoError } = await fastify.supabase
+          .from('clientes')
+          .select('posicao')
+          .eq('barbearia_id', barbearia_id)
+          .in('status', ['aguardando', 'proximo'])
+          .order('posicao', { ascending: false })
+          .limit(1)
+          .single();
+          
+        const novaPosicao = ultimoCliente ? ultimoCliente.posicao + 1 : 1;
+        
+        // Atualizar cliente existente
+        const { data: clienteAtualizado, error: updateError } = await fastify.supabase
+          .from('clientes')
+          .update({
+            token: novoToken,
+            barbeiro_id: barbeiro_id || null,
+            status: 'aguardando',
+            posicao: novaPosicao,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', clienteExistente.id)
+          .select()
+          .single();
+          
+        console.log('📋 [FILA] Resultado atualização:', { clienteAtualizado, updateError });
+        
+        if (updateError) {
+          console.log('❌ [FILA] Erro na atualização:', updateError);
+          return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+        }
+        
+        cliente = clienteAtualizado;
+        isUpdate = true;
+        
+      } else {
+        console.log('🆕 [FILA] Cliente novo, criando registro...');
+        
+        // Gerar token único para o cliente
+        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        
+        // Calcular posição
+        const { data: ultimoCliente, error: posicaoError } = await fastify.supabase
+          .from('clientes')
+          .select('posicao')
+          .eq('barbearia_id', barbearia_id)
+          .in('status', ['aguardando', 'proximo'])
+          .order('posicao', { ascending: false })
+          .limit(1)
+          .single();
+          
+        const posicao = ultimoCliente ? ultimoCliente.posicao + 1 : 1;
+        
+        // Inserir novo cliente
+        const { data: novoCliente, error: insertError } = await fastify.supabase
+          .from('clientes')
+          .insert({
+            nome,
+            telefone,
+            token,
+            barbearia_id,
+            barbeiro_id: barbeiro_id || null,
+            status: 'aguardando',
+            posicao
+          })
+          .select()
+          .single();
+          
+        console.log('📋 [FILA] Resultado inserção:', { novoCliente, insertError });
+        
+        if (insertError) {
+          console.log('❌ [FILA] Erro na inserção:', insertError);
+          return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
+        }
+        
+        cliente = novoCliente;
       }
 
       // Gerar QR codes
@@ -143,10 +204,14 @@ async function filaRoutes(fastify, options) {
       // Configurar cookies do cliente usando decorators centralizados
       fastify.setClienteCookies(reply, cliente, qrCodeFila, qrCodeStatus);
       
-      console.log('✅ [FILA] Cliente adicionado com sucesso');
+      const mensagem = isUpdate 
+        ? 'Cliente atualizado e adicionado à fila com sucesso' 
+        : 'Cliente adicionado à fila com sucesso';
+      
+      console.log(`✅ [FILA] ${mensagem}`);
       return reply.status(201).send({
         success: true,
-        message: 'Cliente adicionado à fila com sucesso',
+        message: mensagem,
         data: { 
           cliente: {
             id: cliente.id,
@@ -157,7 +222,8 @@ async function filaRoutes(fastify, options) {
           }, 
           qr_code_fila: qrCodeFila, 
           qr_code_status: qrCodeStatus, 
-          posicao 
+          posicao: cliente.posicao,
+          is_update: isUpdate
         }
       });
     } catch (error) {
@@ -368,342 +434,15 @@ async function filaRoutes(fastify, options) {
     }
   });
 
-  // Obter fila da barbearia (PÚBLICO - para clientes)
-  fastify.get('/fila-publica/:barbearia_id', {
-    schema: {
-      description: 'Obter fila da barbearia (PÚBLICO - para clientes)',
-      tags: ['fila'],
-      params: {
-        type: 'object',
-        required: ['barbearia_id'],
-        properties: { barbearia_id: { type: 'integer' } }
-      },
-      response: {
-        200: {
-          description: 'Fila da barbearia (dados limitados)',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            data: {
-              type: 'object',
-              properties: {
-                barbearia: { type: 'object' },
-                estatisticas: { type: 'object' }
-              }
-            }
-          }
-        }
-      }
-    }
-    // SEM autenticação - endpoint público
-  }, async (request, reply) => {
-    try {
-      const { barbearia_id } = request.params;
-      
-      // Verificar se a barbearia existe e está ativa
-      const { data: barbearia, error: barbeariaError } = await fastify.supabase
-        .from('barbearias')
-        .select('id, nome, ativo, endereco, telefone')
-        .eq('id', barbearia_id)
-        .eq('ativo', true)
-        .single();
-        
-      if (barbeariaError || !barbearia) {
-        return reply.status(404).send({ success: false, error: 'Barbearia não encontrada ou inativa' });
-      }
-      
-      // Obter apenas estatísticas da fila (sem dados pessoais dos clientes)
-      const { data: clientes, error: clientesError } = await fastify.supabase
-        .from('clientes')
-        .select('status')
-        .eq('barbearia_id', barbearia_id)
-        .in('status', ['aguardando', 'proximo', 'atendendo', 'finalizado', 'removido']);
-        
-      if (clientesError) {
-        return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-      }
-      
-      // Calcular estatísticas
-      const totalClientes = clientes.length;
-      const aguardando = clientes.filter(c => c.status === 'aguardando').length;
-      const proximo = clientes.filter(c => c.status === 'proximo').length;
-      const atendendo = clientes.filter(c => c.status === 'atendendo').length;
-      const finalizados = clientes.filter(c => c.status === 'finalizado').length;
-      const removidos = clientes.filter(c => c.status === 'removido').length;
-      
-      // Obter número de barbeiros ativos
-      const { data: barbeirosAtivos } = await fastify.supabase
-        .from('barbeiros_barbearias')
-        .select('id')
-        .eq('barbearia_id', barbearia_id)
-        .eq('ativo', true);
-      const barbeirosAtivosCount = barbeirosAtivos ? barbeirosAtivos.length : 0;
-      
-      // Calcular tempo estimado (15 minutos por cliente)
-      const tempoEstimado = aguardando * 15;
-      
-      return reply.status(200).send({
-        success: true,
-        data: {
-          barbearia: {
-            id: barbearia.id,
-            nome: barbearia.nome,
-            endereco: barbearia.endereco,
-            telefone: barbearia.telefone
-          },
-          estatisticas: {
-            aguardando,
-            proximo,
-            atendendo,
-            tempo_estimado: tempoEstimado,
-            barbeiros_ativos: barbeirosAtivosCount
-          }
-        }
-      });
-    } catch (error) {
-      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-    }
-  });
-
-  // Chamar próximo cliente (APENAS BARBEIROS)
-  fastify.post('/fila/proximo/:barbearia_id', {
-    schema: {
-      description: 'Chamar próximo cliente da fila (APENAS BARBEIROS)',
-      tags: ['fila'],
-      params: {
-        type: 'object',
-        required: ['barbearia_id'],
-        properties: { barbearia_id: { type: 'integer' } }
-      },
-      response: {
-        200: {
-          description: 'Próximo cliente chamado',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            data: { type: 'object' }
-          }
-        }
-      }
-    },
-    preHandler: [fastify.authenticate, checkBarbeiroRole, checkBarbeiroBarbeariaAccess]
-  }, async (request, reply) => {
-    try {
-      const { barbearia_id } = request.params;
-      const userId = request.user.id;
-      
-      // Verificar se o usuário é um barbeiro ativo na barbearia
-      const { data: barbeiroAtivo } = await fastify.supabase
-        .from('barbeiros_barbearias')
-        .select('id, ativo')
-        .eq('user_id', userId)
-        .eq('barbearia_id', barbearia_id)
-        .eq('ativo', true)
-        .single();
-      if (!barbeiroAtivo) {
-        return reply.status(403).send({ success: false, error: 'Você não está ativo nesta barbearia' });
-      }
-      
-      // Buscar próximo cliente na fila (clientes específicos do barbeiro ou fila geral)
-      const { data: proximoCliente } = await fastify.supabase
-        .from('clientes')
-        .select('*')
-        .eq('barbearia_id', barbearia_id)
-        .eq('status', 'aguardando')
-        .or(`barbeiro_id.eq.${userId},barbeiro_id.is.null`)
-        .order('barbeiro_id', { ascending: false })
-        .order('posicao', { ascending: true })
-        .limit(1)
-        .single();
-      
-      if (!proximoCliente) {
-        return reply.status(404).send({ success: false, error: 'Não há clientes aguardando na fila' });
-      }
-      
-      // Atualizar status do cliente para 'proximo'
-      const { data: clienteAtualizado, error: updateError } = await fastify.supabase
-        .from('clientes')
-        .update({
-          status: 'proximo',
-          barbeiro_id: userId,
-          data_atendimento: new Date().toISOString()
-        })
-        .eq('id', proximoCliente.id)
-        .select()
-        .single();
-      
-      if (updateError) {
-        return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-      }
-      
-      return reply.status(200).send({
-        success: true,
-        message: 'Próximo cliente chamado',
-        data: clienteAtualizado
-      });
-    } catch (error) {
-      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-    }
-  });
 
 
 
-  // Remover cliente da fila (APENAS BARBEIROS)
-  fastify.post('/fila/remover/:cliente_id', {
-    schema: {
-      description: 'Remover cliente da fila (APENAS BARBEIROS)',
-      tags: ['fila'],
-      params: {
-        type: 'object',
-        required: ['cliente_id'],
-        properties: { cliente_id: { type: 'string' } }
-      },
-      response: {
-        200: {
-          description: 'Cliente removido da fila',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            data: { type: 'object' }
-          }
-        }
-      }
-    },
-    preHandler: fastify.authenticate
-  }, async (request, reply) => {
-    try {
-      const { cliente_id } = request.params;
-      const userId = request.user.id;
-      
-      // Buscar cliente
-      const { data: cliente } = await fastify.supabase
-        .from('clientes')
-        .select('*')
-        .eq('id', cliente_id)
-        .eq('barbeiro_id', userId)
-        .eq('status', 'proximo')
-        .single();
-      
-      if (!cliente) {
-        return reply.status(404).send({ success: false, error: 'Cliente não encontrado ou não está no status correto' });
-      }
-      
-      // Atualizar status para 'removido'
-      const { data: clienteAtualizado, error: updateError } = await fastify.supabase
-        .from('clientes')
-        .update({
-          status: 'removido',
-          data_finalizacao: new Date().toISOString()
-        })
-        .eq('id', cliente_id)
-        .select()
-        .single();
-      
-      if (updateError) {
-        return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-      }
-      
-      return reply.status(200).send({
-        success: true,
-        message: 'Cliente removido da fila com sucesso',
-        data: clienteAtualizado
-      });
-    } catch (error) {
-      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-    }
-  });
 
-  // Finalizar atendimento (APENAS BARBEIROS)
-  fastify.post('/fila/finalizar', {
-    schema: {
-      description: 'Finalizar atendimento de um cliente (APENAS BARBEIROS)',
-      tags: ['fila'],
-      body: {
-        type: 'object',
-        required: ['cliente_id', 'barbearia_id', 'servico', 'duracao'],
-        properties: {
-          cliente_id: { type: 'string' },
-          barbearia_id: { type: 'integer' },
-          servico: { type: 'string' },
-          duracao: { type: 'integer' }
-        }
-      },
-      response: {
-        200: {
-          description: 'Atendimento finalizado',
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            data: { type: 'object' }
-          }
-        }
-      }
-    },
-    preHandler: fastify.authenticate
-  }, async (request, reply) => {
-    try {
-      const { cliente_id, barbearia_id, servico, duracao } = request.body;
-      const userId = request.user.id;
-      
-      // Verificar se o usuário é barbeiro ativo na barbearia
-      const { data: barbeiroAtivo } = await fastify.supabase
-        .from('barbeiros_barbearias')
-        .select('id, ativo')
-        .eq('user_id', userId)
-        .eq('barbearia_id', barbearia_id)
-        .eq('ativo', true)
-        .single();
-      if (!barbeiroAtivo) {
-        return reply.status(403).send({ success: false, error: 'Você não está ativo nesta barbearia' });
-      }
-      
-      // Buscar cliente
-      const { data: cliente } = await fastify.supabase
-        .from('clientes')
-        .select('*')
-        .eq('id', cliente_id)
-        .eq('barbearia_id', barbearia_id)
-        .eq('status', 'atendendo')
-        .single();
-      
-      if (!cliente) {
-        return reply.status(404).send({ success: false, error: 'Cliente não encontrado ou não está sendo atendido' });
-      }
-      
-      // Atualizar status do cliente para 'finalizado'
-      await fastify.supabase
-        .from('clientes')
-        .update({ 
-          status: 'finalizado', 
-          data_finalizacao: new Date().toISOString() 
-        })
-        .eq('id', cliente_id);
-      
-      // Registrar no histórico de atendimentos
-      await fastify.supabase
-        .from('historico_atendimentos')
-        .insert({
-          cliente_id,
-          barbearia_id,
-          barbeiro_id: userId,
-          servico,
-          duracao,
-          data_inicio: cliente.data_atendimento,
-          data_fim: new Date().toISOString()
-        });
-      
-      return reply.status(200).send({
-        success: true,
-        message: 'Atendimento finalizado com sucesso',
-        data: { cliente_id, barbearia_id, servico, duracao }
-      });
-    } catch (error) {
-      return reply.status(500).send({ success: false, error: 'Erro interno do servidor' });
-    }
-  });
+
+
+
+
+
 
 
 
