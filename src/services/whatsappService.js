@@ -1,15 +1,11 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const Groq = require('groq-sdk');
 const { getRateLimitController } = require('../controllers/RateLimitController');
 
 class WhatsAppService {
   constructor() {
     this.client = null;
     this.isReady = false;
-    this.groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    });
     
     // Inicializar rate limit controller
     this.rateLimitController = getRateLimitController();
@@ -116,23 +112,10 @@ class WhatsAppService {
       // Gerar números alternativos (com e sem 9)
       const numerosAlternativos = this.gerarNumerosAlternativos(telefone);
       
-      // Verificar rate limits
-      console.log('📱 [WHATSAPP] Verificando rate limits...');
-      const podeUsarGroq = await this.rateLimitController.podeFazerRequisicao('groq', 100);
-      console.log(`📱 [WHATSAPP] Pode usar Groq AI: ${podeUsarGroq ? '✅ SIM' : '❌ NÃO'}`);
-      
-      let mensagem;
-      if (podeUsarGroq) {
-        // Usar Groq AI para mensagem personalizada
-        console.log('📱 [WHATSAPP] Gerando mensagem com Groq AI...');
-        mensagem = await this.gerarMensagemVezChegou(nomeCliente, nomeBarbeiro);
-        console.log('✅ [WHATSAPP] Mensagem gerada com Groq AI');
-      } else {
-        // Usar mensagem padrão
-        console.log('📱 [WHATSAPP] Usando mensagem padrão...');
-        mensagem = this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
-        console.log('✅ [WHATSAPP] Mensagem padrão definida');
-      }
+      // Usar mensagem padrão (sem IA desnecessária)
+      console.log('📱 [WHATSAPP] Usando mensagem padrão...');
+      const mensagem = this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
+      console.log('✅ [WHATSAPP] Mensagem padrão definida');
       
       console.log('📱 [WHATSAPP] Mensagem final:');
       console.log('📱 [WHATSAPP] ========================================');
@@ -192,23 +175,10 @@ class WhatsAppService {
       // Gerar números alternativos (com e sem 9)
       const numerosAlternativos = this.gerarNumerosAlternativos(telefone);
       
-      // Verificar rate limits
-      console.log('📱 [WHATSAPP] Verificando rate limits...');
-      const podeUsarGroq = await this.rateLimitController.podeFazerRequisicao('groq', 100);
-      console.log(`📱 [WHATSAPP] Pode usar Groq AI: ${podeUsarGroq ? '✅ SIM' : '❌ NÃO'}`);
-      
-      let mensagem;
-      if (podeUsarGroq) {
-        // Usar Groq AI para mensagem personalizada
-        console.log('📱 [WHATSAPP] Gerando mensagem com Groq AI...');
-        mensagem = await this.gerarMensagemAvaliacao(nomeCliente, linkAvaliacao);
-        console.log('✅ [WHATSAPP] Mensagem gerada com Groq AI');
-      } else {
-        // Usar mensagem padrão
-        console.log('📱 [WHATSAPP] Usando mensagem padrão...');
-        mensagem = this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
-        console.log('✅ [WHATSAPP] Mensagem padrão definida');
-      }
+      // Usar mensagem padrão (sem IA desnecessária)
+      console.log('📱 [WHATSAPP] Usando mensagem padrão...');
+      const mensagem = this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
+      console.log('✅ [WHATSAPP] Mensagem padrão definida');
       
       console.log('📱 [WHATSAPP] Mensagem final:');
       console.log('📱 [WHATSAPP] ========================================');
@@ -246,95 +216,7 @@ class WhatsAppService {
     }
   }
 
-  // ========================================
-  // 🤖 GERAÇÃO DE MENSAGENS COM GROQ AI
-  // ========================================
 
-  async gerarMensagemVezChegou(nomeCliente, nomeBarbeiro) {
-    try {
-      console.log('🤖 [GROQ] Gerando mensagem personalizada para vez chegou...');
-      
-      const prompt = `Gere uma mensagem amigável e profissional para WhatsApp informando que a vez do cliente chegou na barbearia.
-
-Contexto:
-- Nome do cliente: ${nomeCliente}
-- Nome do barbeiro: ${nomeBarbeiro}
-- Barbearia: Lucas Barbearia
-
-Requisitos:
-- Tom amigável e profissional
-- Incluir emojis apropriados
-- Mencionar o nome do barbeiro
-- Máximo 3 linhas
-- Não incluir saudações longas
-
-Exemplo de estrutura:
-🎉 Olá [Nome]! Sua vez chegou na Lucas Barbearia!
-✂️ Barbeiro: [Nome do Barbeiro]
-Venha até o balcão!`;
-
-      console.log('🤖 [GROQ] Enviando prompt para Groq AI...');
-      const completion = await this.groq.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'llama3-8b-8192',
-        max_tokens: 100,
-        temperature: 0.7,
-      });
-
-      const mensagemGerada = completion.choices[0]?.message?.content || this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
-      console.log('✅ [GROQ] Mensagem gerada com sucesso');
-      
-      return mensagemGerada;
-    } catch (error) {
-      console.error('❌ [GROQ] Erro ao gerar mensagem com Groq:', error);
-      console.log('🔄 [GROQ] Usando mensagem padrão como fallback...');
-      return this.getMensagemPadraoVezChegou(nomeCliente, nomeBarbeiro);
-    }
-  }
-
-  async gerarMensagemAvaliacao(nomeCliente, linkAvaliacao) {
-    try {
-      console.log('🤖 [GROQ] Gerando mensagem personalizada para avaliação...');
-      
-      const prompt = `Gere uma mensagem amigável para WhatsApp pedindo avaliação do serviço.
-
-Contexto:
-- Nome do cliente: ${nomeCliente}
-- Link da avaliação: ${linkAvaliacao}
-- Barbearia: Lucas Barbearia
-
-Requisitos:
-- Tom agradecido e amigável
-- Incluir emojis apropriados
-- Mencionar que o atendimento foi concluído
-- Incluir o link da avaliação
-- Máximo 4 linhas
-- Não ser muito longo
-
-Exemplo de estrutura:
-✨ [Nome], seu atendimento foi concluído!
-⭐ Que tal avaliar nosso serviço?
-Clique aqui: [LINK]
-Sua opinião é muito importante para nós!`;
-
-      console.log('🤖 [GROQ] Enviando prompt para Groq AI...');
-      const completion = await this.groq.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'llama3-8b-8192',
-        max_tokens: 120,
-        temperature: 0.7,
-      });
-
-      const mensagemGerada = completion.choices[0]?.message?.content || this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
-      console.log('✅ [GROQ] Mensagem gerada com sucesso');
-      
-      return mensagemGerada;
-    } catch (error) {
-      console.error('❌ [GROQ] Erro ao gerar mensagem com Groq:', error);
-      console.log('🔄 [GROQ] Usando mensagem padrão como fallback...');
-      return this.getMensagemPadraoAvaliacao(nomeCliente, linkAvaliacao);
-    }
-  }
 
   // ========================================
   // 📝 MENSAGENS PADRÃO (FALLBACK)
@@ -357,6 +239,7 @@ Obrigado pela paciência! 🙏`;
 ⭐ Que tal avaliar nosso serviço?
 Clique aqui: ${linkAvaliacao}
 
+⏰ Link válido por 24 horas
 Sua opinião é muito importante para nós! 🙏`;
   }
 
@@ -472,8 +355,7 @@ Sua opinião é muito importante para nós! 🙏`;
   async getStatus() {
     return {
       isReady: this.isReady,
-      isConnected: this.client ? true : false,
-      rateLimitStatus: await this.rateLimitController.getEstatisticas()
+      isConnected: this.client ? true : false
     };
   }
 

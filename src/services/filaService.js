@@ -74,31 +74,79 @@ class FilaService {
       }
     }
     
-    // Gerar token único para o cliente
-    const token = this.gerarTokenUnico();
-    
-    // Obter posição atual na fila
-    const posicao = await this.calcularProximaPosicao(barbearia_id);
-    
-    // Inserir cliente na fila
-    const { data: cliente, error: insertError } = await this.supabase
+    // Verificar se o cliente já existe (nome + telefone + barbearia)
+    const { data: clienteExistente, error: clienteError } = await this.supabase
       .from('clientes')
-      .insert({
-        nome,
-        telefone,
-        token,
-        barbearia_id,
-        barbeiro_id,
-        posicao,
-        status: 'aguardando',
-        created_at: new Date().toISOString()
-      })
-      .select()
+      .select('id, nome, telefone, status, posicao, token')
+      .eq('nome', nome)
+      .eq('telefone', telefone)
+      .eq('barbearia_id', barbearia_id)
       .single();
       
-    if (insertError) {
-      console.error('Erro ao inserir cliente:', insertError);
-      throw new Error('Erro interno do servidor');
+    let cliente;
+    let isUpdate = false;
+    
+    if (clienteExistente) {
+      // Cliente já existe, vamos atualizar para entrar na fila novamente
+      console.log('🔄 [FILA] Cliente já existe, atualizando para entrar na fila...');
+      
+      // Gerar novo token
+      const novoToken = this.gerarTokenUnico();
+      
+      // Calcular nova posição
+      const novaPosicao = await this.calcularProximaPosicao(barbearia_id);
+      
+      // Atualizar cliente existente (mesmo se já estiver na fila)
+      const { data: clienteAtualizado, error: updateError } = await this.supabase
+        .from('clientes')
+        .update({
+          token: novoToken,
+          barbeiro_id,
+          status: 'aguardando',
+          posicao: novaPosicao,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', clienteExistente.id)
+        .select()
+        .single();
+        
+      if (updateError) {
+        console.error('Erro ao atualizar cliente:', updateError);
+        throw new Error('Erro interno do servidor');
+      }
+      
+      cliente = clienteAtualizado;
+      isUpdate = true;
+      
+    } else {
+      // Gerar token único para o cliente
+      const token = this.gerarTokenUnico();
+      
+      // Obter posição atual na fila
+      const posicao = await this.calcularProximaPosicao(barbearia_id);
+      
+      // Inserir novo cliente na fila
+      const { data: novoCliente, error: insertError } = await this.supabase
+        .from('clientes')
+        .insert({
+          nome,
+          telefone,
+          token,
+          barbearia_id,
+          barbeiro_id,
+          posicao,
+          status: 'aguardando',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+        
+      if (insertError) {
+        console.error('Erro ao inserir cliente:', insertError);
+        throw new Error('Erro interno do servidor');
+      }
+      
+      cliente = novoCliente;
     }
     
     // Gerar QR codes
@@ -116,7 +164,8 @@ class FilaService {
       },
       qr_code_fila: qrCodeFila,
       qr_code_status: qrCodeStatus,
-      posicao: cliente.posicao
+      posicao: cliente.posicao,
+      is_update: isUpdate
     };
     
     return resposta;

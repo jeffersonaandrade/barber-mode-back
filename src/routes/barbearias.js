@@ -17,7 +17,7 @@ async function barbeariaRoutes(fastify, options) {
     try {
       const { data: barbearias, error } = await supabase
         .from('barbearias')
-        .select('*')
+        .select('id, nome')
         .eq('ativo', true)
         .order('nome');
 
