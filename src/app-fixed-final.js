@@ -22,6 +22,7 @@ const relatorioRoutes = require('./routes/relatorios');
 const configuracoesRoutes = require('./routes/configuracoes');
 const whatsappRoutes = require('./routes/whatsapp');
 
+
 // Função para configurar o servidor
 async function configureServer() {
   console.log('🚀 Iniciando servidor...');

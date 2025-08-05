@@ -652,10 +652,14 @@ class FilaService {
           ? agora 
           : updated;
         
-        // Tempo total de espera (criação até finalização/atual)
-        const tempoTotalMinutos = (tempoFinal - created) / (1000 * 60);
+        // CORREÇÃO: Para clientes que reentraram na fila, usar updated_at como ponto de início
+        // Se o cliente foi atualizado (reentrou na fila), usar updated_at como início do tempo
+        const tempoInicio = updated > created ? updated : created;
         
-        // console.log(`[ESTATISTICAS] Cliente ${cliente.status}: criado ${created.toISOString()}, tempo total: ${Math.round(tempoTotalMinutos)} min`);
+        // Tempo total de espera (início real até finalização/atual)
+        const tempoTotalMinutos = (tempoFinal - tempoInicio) / (1000 * 60);
+        
+        // console.log(`[ESTATISTICAS] Cliente ${cliente.status}: início ${tempoInicio.toISOString()}, tempo total: ${Math.round(tempoTotalMinutos)} min`);
         
         temposEspera.push(tempoTotalMinutos);
         
